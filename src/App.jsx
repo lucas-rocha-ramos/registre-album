@@ -22,7 +22,6 @@ const generateSlug = (name, id) => {
 const saveAlbumToGlobal = (album) => {
   const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
   albums[album.id] = album;
-  // Também salvar por slug
   const slug = generateSlug(album.clientName, album.id);
   albums[slug] = album;
   localStorage.setItem('global_albums', JSON.stringify(albums));
@@ -63,11 +62,8 @@ export default function App() {
   if (hash.startsWith('#/album/')) {
     try {
       const identifier = hash.replace('#/album/', '');
-      
-      // Buscar pelo ID ou slug no storage global
       let albumData = getAlbumFromGlobal(identifier);
       
-      // Se não encontrou, tentar buscar entre os álbuns do admin
       if (!albumData) {
         albumData = albums.find(a => a.id === identifier || generateSlug(a.clientName, a.id) === identifier);
       }
@@ -113,7 +109,6 @@ function AdminDashboard({ albums, setAlbums }) {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
       const newAlbums = albums.filter(a => a.id !== id);
       setAlbums(newAlbums);
-      // Remover do global
       const globalAlbums = JSON.parse(localStorage.getItem('global_albums') || '{}');
       delete globalAlbums[id];
       localStorage.setItem('global_albums', JSON.stringify(globalAlbums));
@@ -508,6 +503,19 @@ function ClientApp({ album }) {
         className="absolute inset-0 -z-10 bg-cover bg-center transition-all duration-1000 scale-110 blur-[60px] opacity-40"
         style={{ backgroundImage: photos[storyIndex] ? `url(${photos[storyIndex]})` : 'none' }}
       />
+
+      {/* Progress Bar - aparece APENAS no modo Story */}
+      {viewMode === 'story' && (
+        <div className="fixed top-0 left-0 right-0 z-50 pt-2 px-2">
+          <div className="flex gap-1">
+            {photos.map((_, i) => (
+              <div key={i} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
+                <div className="h-full bg-white transition-all duration-300" style={{ width: i <= storyIndex ? '100%' : '0%' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Header com informações alinhadas */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-4">
