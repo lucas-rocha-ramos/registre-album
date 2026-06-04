@@ -3,7 +3,7 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  BarChart3, Award, Search
+  BarChart3, Award, Search, Upload
 } from 'lucide-react';
 
 // Função para gerar slug amigável
@@ -209,7 +209,7 @@ function AdminEditor({ album, onSave, onCancel }) {
   const [extractedUrl, setExtractedUrl] = useState(formData.googleDriveUrl || '');
   const [extractionProgress, setExtractionProgress] = useState(0);
 
-  const extractPhotosFromDrive = async () => {
+  const extractPhotosFromDrive = async (updateOnly = false) => {
     if (!extractedUrl || !extractedUrl.includes('drive.google.com')) {
       alert("Por favor, insira um link válido de uma pasta do Google Drive");
       return;
@@ -217,7 +217,7 @@ function AdminEditor({ album, onSave, onCancel }) {
 
     setIsExtracting(true);
     setExtractionError(false);
-    setExtractionMessage('A extrair fotos do Google Drive...');
+    setExtractionMessage(updateOnly ? 'A atualizar novas fotos...' : 'A extrair fotos do Google Drive...');
     setExtractionProgress(0);
 
     const progressInterval = setInterval(() => {
@@ -232,22 +232,44 @@ function AdminEditor({ album, onSave, onCancel }) {
       if (data.success && data.photos && data.photos.length > 0) {
         setExtractionProgress(100);
         const validPhotos = data.photos.filter(photo => photo && photo.startsWith('http'));
-        setExtractedPhotos(validPhotos);
+        
+        let newPhotos = validPhotos;
+        let addedCount = validPhotos.length;
+        
+        if (updateOnly) {
+          // Filtrar apenas fotos que ainda não existem
+          const existingUrls = new Set(extractedPhotos);
+          newPhotos = [...extractedPhotos];
+          let count = 0;
+          
+          for (const photo of validPhotos) {
+            if (!existingUrls.has(photo)) {
+              newPhotos.push(photo);
+              count++;
+            }
+          }
+          addedCount = count;
+          setExtractedPhotos(newPhotos);
+          setExtractionMessage(`${addedCount} nova(s) foto(s) adicionada(s)! Total: ${newPhotos.length} fotos`);
+        } else {
+          setExtractedPhotos(validPhotos);
+          setExtractionMessage(`${validPhotos.length} fotos extraídas com sucesso!`);
+        }
+        
         setSelectedFeatured([]);
         setSelectedProfile('');
-        setExtractionMessage(`${validPhotos.length} fotos extraídas com sucesso!`);
-        setFormData(prev => ({ ...prev, photos: validPhotos }));
+        setFormData(prev => ({ ...prev, photos: newPhotos }));
         setTimeout(() => setExtractionMessage(''), 3000);
       } else {
         setExtractionError(true);
         setExtractionMessage(data.error || 'Não foi possível extrair as fotos. Verifique se a pasta é pública.');
-        setExtractedPhotos([]);
+        if (!updateOnly) setExtractedPhotos([]);
       }
     } catch (error) {
       console.error("Erro ao extrair:", error);
       setExtractionError(true);
       setExtractionMessage('Erro ao conectar com a API. Tente novamente.');
-      setExtractedPhotos([]);
+      if (!updateOnly) setExtractedPhotos([]);
     } finally {
       setTimeout(() => {
         setIsExtracting(false);
@@ -310,15 +332,28 @@ function AdminEditor({ album, onSave, onCancel }) {
                 className="flex-1 border border-gray-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-[#d4af37] focus:border-transparent outline-none transition-all font-mono text-sm" 
                 placeholder="Ex: https://drive.google.com/drive/folders/..." 
               />
-              <button
-                type="button"
-                onClick={extractPhotosFromDrive}
-                disabled={isExtracting}
-                className="px-6 py-3 bg-[#d4af37] text-black font-semibold rounded-xl hover:bg-[#c4a137] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
-              >
-                {isExtracting ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                {isExtracting ? 'Extraindo...' : 'Extrair Fotos'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => extractPhotosFromDrive(false)}
+                  disabled={isExtracting}
+                  className="px-6 py-3 bg-[#d4af37] text-black font-semibold rounded-xl hover:bg-[#c4a137] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                >
+                  {isExtracting ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                  {isExtracting ? 'Extraindo...' : 'Extrair Fotos'}
+                </button>
+                {!isNew && (
+                  <button
+                    type="button"
+                    onClick={() => extractPhotosFromDrive(true)}
+                    disabled={isExtracting}
+                    className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                  >
+                    {isExtracting ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                    {isExtracting ? 'Atualizando...' : 'Atualizar Novas'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {isExtracting && (
