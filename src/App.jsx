@@ -7,41 +7,30 @@ import {
 } from 'lucide-react';
 
 // Função para gerar slug amigável
-const generateSlug = (name) => {
-  return name
+const generateSlug = (name, id) => {
+  const cleanName = name
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+  return `${cleanName}-${id.slice(-8)}`;
 };
 
-// Funções para comprimir/descomprimir os dados do álbum
-const compressAlbumData = (data) => {
-  const json = JSON.stringify(data);
-  return encodeURIComponent(json);
-};
-
-const decompressAlbumData = (hash) => {
-  try {
-    const decoded = decodeURIComponent(hash);
-    return JSON.parse(decoded);
-  } catch (e) {
-    throw new Error('Link inválido');
-  }
-};
-
-// Função para salvar álbum no localStorage global
+// Salvar álbum no localStorage global
 const saveAlbumToGlobal = (album) => {
   const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
   albums[album.id] = album;
+  // Também salvar por slug
+  const slug = generateSlug(album.clientName, album.id);
+  albums[slug] = album;
   localStorage.setItem('global_albums', JSON.stringify(albums));
 };
 
-const getAlbumFromGlobal = (id) => {
+const getAlbumFromGlobal = (identifier) => {
   const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-  return albums[id];
+  return albums[identifier];
 };
 
 export default function App() {
@@ -53,7 +42,6 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('studio_albums_v2', JSON.stringify(albums));
-    // Salvar cada álbum no storage global
     albums.forEach(album => saveAlbumToGlobal(album));
   }, [albums]);
 
@@ -74,25 +62,23 @@ export default function App() {
 
   if (hash.startsWith('#/album/')) {
     try {
-      const slugOrData = hash.replace('#/album/', '');
+      const identifier = hash.replace('#/album/', '');
       
-      // Tentar encontrar pelo slug primeiro
-      let albumData = null;
+      // Buscar pelo ID ou slug no storage global
+      let albumData = getAlbumFromGlobal(identifier);
       
-      // Verificar se é um slug (não começa com %)
-      if (!slugOrData.includes('%')) {
-        const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-        albumData = albums[slugOrData];
-      }
-      
-      // Se não encontrou, tentar decodificar como dados comprimidos
+      // Se não encontrou, tentar buscar entre os álbuns do admin
       if (!albumData) {
-        albumData = decompressAlbumData(slugOrData);
+        albumData = albums.find(a => a.id === identifier || generateSlug(a.clientName, a.id) === identifier);
       }
       
-      return <ClientApp album={albumData} />;
+      if (albumData) {
+        return <ClientApp album={albumData} />;
+      } else {
+        throw new Error('Álbum não encontrado');
+      }
     } catch (e) {
-      console.error("Erro ao decodificar:", e);
+      console.error("Erro ao encontrar álbum:", e);
       return <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
         <X size={48} className="text-red-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Link de álbum inválido ou corrompido</h2>
@@ -125,12 +111,17 @@ function AdminDashboard({ albums, setAlbums }) {
 
   const handleDelete = (id) => {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
-      setAlbums(albums.filter(a => a.id !== id));
+      const newAlbums = albums.filter(a => a.id !== id);
+      setAlbums(newAlbums);
+      // Remover do global
+      const globalAlbums = JSON.parse(localStorage.getItem('global_albums') || '{}');
+      delete globalAlbums[id];
+      localStorage.setItem('global_albums', JSON.stringify(globalAlbums));
     }
   };
 
   const handleCopyLink = (album) => {
-    const slug = `${generateSlug(album.clientName)}-${album.id}`;
+    const slug = generateSlug(album.clientName, album.id);
     const url = `${window.location.origin}${window.location.pathname}#/album/${slug}`;
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
@@ -521,7 +512,6 @@ function ClientApp({ album }) {
       {/* Header com informações alinhadas */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-4">
         <div className="flex items-center justify-between px-4">
-          {/* Info do cliente */}
           <div className="flex items-center gap-3">
             <img src={album.profileImage || fallbackProfile} className="w-10 h-10 rounded-full border-2 border-white/30 object-cover" alt="Profile" />
             <div>
@@ -530,7 +520,6 @@ function ClientApp({ album }) {
             </div>
           </div>
           
-          {/* Stats e Download na mesma linha */}
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setShowStats(true)}
