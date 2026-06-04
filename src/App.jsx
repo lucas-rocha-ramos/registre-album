@@ -650,4 +650,115 @@ function WelcomeScreen({ album, featuredPhotos, onAuth, theme, fallbackProfile }
         </div>
 
         <button onClick={handleLogin} className="w-full bg-[#d4af37] text-black font-semibold rounded-full py-3.5 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm">
-          Aceder ao Álbum
+          Aceder ao Álbum <ArrowRight size={18} />
+        </button>
+        
+        {error && (
+          <div className="mt-4 text-red-400 text-sm animate-pulse">
+            Código incorreto. Tente novamente.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fallbackProfile }) {
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (photos[index]) {
+      const img = new Image();
+      img.onload = () => {
+        setImageDimensions({ width: img.width, height: img.height });
+      };
+      img.src = photos[index];
+    }
+  }, [index, photos]);
+
+  if (!photos[index]) return null;
+
+  const isPortrait = imageDimensions.height > imageDimensions.width;
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center bg-black">
+      <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 to-transparent pt-12 pb-6">
+        <div className="text-center">
+          <div className="flex justify-center mb-2">
+            <img src={album.profileImage || fallbackProfile} className="w-12 h-12 rounded-full border-2 border-white/30 object-cover" alt="Profile" />
+          </div>
+          <h2 className="font-semibold text-base text-white">{album.clientName}</h2>
+          <p className="text-xs text-white/70">{album.subtitle}</p>
+        </div>
+        <button 
+          onClick={() => setIsPaused(!isPaused)} 
+          className="absolute top-5 right-4 w-8 h-8 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+        >
+          {isPaused ? <Play size={16} className="fill-white" /> : <Pause size={16} className="fill-white" />}
+        </button>
+      </div>
+
+      <div className="w-full h-full flex items-center justify-center">
+        <img 
+          src={photos[index]} 
+          className={`max-w-full max-h-full object-contain ${isPortrait ? 'w-auto h-full' : 'w-full h-auto'}`} 
+          alt={`Story ${index}`} 
+        />
+      </div>
+
+      <div className="absolute inset-y-0 left-0 w-1/3 z-30 cursor-pointer" onClick={() => setIndex(index - 1)} />
+      <div className="absolute inset-y-0 right-0 w-2/3 z-30 cursor-pointer" onClick={() => setIndex(index + 1)} />
+      
+      <div className="absolute bottom-6 left-0 right-0 text-center z-40">
+        <p className="text-white/50 text-xs bg-black/30 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
+          {index + 1} / {photos.length}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function GalleryViewer({ album, photos, onPhotoClick, theme }) {
+  return (
+    <div className="w-full h-full overflow-y-auto pt-20 pb-24 px-4 bg-black">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#d4af37]">
+              <img src={album.profileImage} alt="Profile" className="w-full h-full object-cover" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-semibold text-white mb-1">{album.clientName}</h1>
+          <p className="text-sm text-white/50">{album.subtitle}</p>
+          <p className="text-xs text-[#d4af37] mt-2">{photos.length} fotos</p>
+        </div>
+
+        <div className="columns-2 md:columns-3 gap-3 space-y-3">
+          {photos.map((photo, idx) => (
+            <div 
+              key={idx} 
+              onClick={() => onPhotoClick(idx)} 
+              className="break-inside-avoid cursor-pointer group overflow-hidden rounded-xl bg-white/5 transition-all duration-300 hover:scale-[1.02]"
+            >
+              <div className="relative">
+                <img 
+                  src={photo} 
+                  loading="lazy" 
+                  className="w-full h-auto object-contain transition-transform duration-500 group-hover:scale-105" 
+                  alt={`Grid ${idx}`}
+                  style={{ display: 'block' }}
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
+                  <PlayCircle size={40} className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                </div>
+                <div className="absolute top-2 right-2 bg-black/50 rounded-full px-2 py-0.5 text-[10px] font-medium text-white/80">
+                  {idx + 1}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
