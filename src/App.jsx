@@ -1,10 +1,3 @@
-O problema da tela branca ocorre porque o componente `ClientApp` foi declarado **dentro** da função `App()`. Como o componente `AlbumLoader` (que tenta renderizar o `ClientApp`) está **fora** do `App()`, ele não consegue enxergar a declaração do `ClientApp`, o que gera um erro no React e causa a tela branca.
-
-Para corrigir isso, basta mover a função `ClientApp` para fora do `App()`, colocando-a junto com os outros componentes na raiz do arquivo.
-
-Aqui está o código com **apenas essa alteração** aplicada, exatamente como você pediu:
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -142,7 +135,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente MOVIDO PARA FORA DO APP
+// Componente da Visão do Cliente (Movido para fora de App)
 function ClientApp({ album }) {
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12">
@@ -259,7 +252,7 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  return <ClientApp album={album} />; // Agora o AlbumLoader consegue encontrar o ClientApp
+  return <ClientApp album={album} />;
 }
 
 function AdminDashboard({ albums, setAlbums }) {
@@ -650,5 +643,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
