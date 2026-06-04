@@ -6,6 +6,17 @@ import {
   BarChart3, Award, Search
 } from 'lucide-react';
 
+// Função para gerar slug amigável
+const generateSlug = (name) => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+};
+
 // Funções para comprimir/descomprimir os dados do álbum
 const compressAlbumData = (data) => {
   const json = JSON.stringify(data);
@@ -21,6 +32,18 @@ const decompressAlbumData = (hash) => {
   }
 };
 
+// Função para salvar álbum no localStorage global
+const saveAlbumToGlobal = (album) => {
+  const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
+  albums[album.id] = album;
+  localStorage.setItem('global_albums', JSON.stringify(albums));
+};
+
+const getAlbumFromGlobal = (id) => {
+  const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
+  return albums[id];
+};
+
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [albums, setAlbums] = useState(() => {
@@ -30,6 +53,8 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('studio_albums_v2', JSON.stringify(albums));
+    // Salvar cada álbum no storage global
+    albums.forEach(album => saveAlbumToGlobal(album));
   }, [albums]);
 
   useEffect(() => {
@@ -49,8 +74,22 @@ export default function App() {
 
   if (hash.startsWith('#/album/')) {
     try {
-      const compressedData = hash.replace('#/album/', '');
-      const albumData = decompressAlbumData(compressedData);
+      const slugOrData = hash.replace('#/album/', '');
+      
+      // Tentar encontrar pelo slug primeiro
+      let albumData = null;
+      
+      // Verificar se é um slug (não começa com %)
+      if (!slugOrData.includes('%')) {
+        const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
+        albumData = albums[slugOrData];
+      }
+      
+      // Se não encontrou, tentar decodificar como dados comprimidos
+      if (!albumData) {
+        albumData = decompressAlbumData(slugOrData);
+      }
+      
       return <ClientApp album={albumData} />;
     } catch (e) {
       console.error("Erro ao decodificar:", e);
@@ -91,8 +130,8 @@ function AdminDashboard({ albums, setAlbums }) {
   };
 
   const handleCopyLink = (album) => {
-    const compressed = compressAlbumData(album);
-    const url = `${window.location.origin}${window.location.pathname}#/album/${compressed}`;
+    const slug = `${generateSlug(album.clientName)}-${album.id}`;
+    const url = `${window.location.origin}${window.location.pathname}#/album/${slug}`;
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -479,26 +518,42 @@ function ClientApp({ album }) {
         style={{ backgroundImage: photos[storyIndex] ? `url(${photos[storyIndex]})` : 'none' }}
       />
 
-      {/* Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 pt-2 px-2">
-        <div className="flex gap-1">
-          {photos.map((_, i) => (
-            <div key={i} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
-              <div className="h-full bg-white transition-all duration-300" style={{ width: i <= storyIndex ? '100%' : '0%' }} />
+      {/* Header com informações alinhadas */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-4">
+        <div className="flex items-center justify-between px-4">
+          {/* Info do cliente */}
+          <div className="flex items-center gap-3">
+            <img src={album.profileImage || fallbackProfile} className="w-10 h-10 rounded-full border-2 border-white/30 object-cover" alt="Profile" />
+            <div>
+              <h2 className="font-semibold text-sm text-white">{album.clientName}</h2>
+              <p className="text-xs text-white/70">{album.subtitle}</p>
             </div>
-          ))}
+          </div>
+          
+          {/* Stats e Download na mesma linha */}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowStats(true)}
+              className="bg-black/50 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium border border-white/10"
+            >
+              <BarChart3 size={14} className="text-[#d4af37]" />
+              <span>{Math.round(viewPercent)}%</span>
+              {badges.length > 0 && <Award size={12} className="text-[#d4af37]" />}
+            </button>
+            
+            {album.googleDriveUrl && (
+              <a
+                href={album.googleDriveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#d4af37] text-black rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium shadow-lg hover:opacity-90 transition-opacity"
+              >
+                <Download size={14} /> Descarregar
+              </a>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Stats Button */}
-      <button 
-        onClick={() => setShowStats(true)}
-        className="fixed top-4 left-4 z-40 bg-black/50 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium border border-white/10"
-      >
-        <BarChart3 size={14} className="text-[#d4af37]" />
-        <span>{Math.round(viewPercent)}%</span>
-        {badges.length > 0 && <Award size={12} className="text-[#d4af37]" />}
-      </button>
 
       {/* Stats Modal */}
       {showStats && (
@@ -529,18 +584,6 @@ function ClientApp({ album }) {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Download Button - Fixo no topo direito */}
-      {album.googleDriveUrl && (
-        <a
-          href={album.googleDriveUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed top-4 right-4 z-40 bg-[#d4af37] text-black rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium shadow-lg hover:opacity-90 transition-opacity"
-        >
-          <Download size={14} /> Descarregar
-        </a>
       )}
 
       {/* Navigation */}
@@ -682,19 +725,13 @@ function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fa
 
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
-      <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 to-transparent pt-12 pb-6">
-        <div className="text-center">
-          <div className="flex justify-center mb-2">
-            <img src={album.profileImage || fallbackProfile} className="w-12 h-12 rounded-full border-2 border-white/30 object-cover" alt="Profile" />
-          </div>
-          <h2 className="font-semibold text-base text-white">{album.clientName}</h2>
-          <p className="text-xs text-white/70">{album.subtitle}</p>
-        </div>
+      <div className="absolute bottom-6 left-0 right-0 text-center z-40">
         <button 
           onClick={() => setIsPaused(!isPaused)} 
-          className="absolute top-5 right-4 w-8 h-8 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+          className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1"
         >
-          {isPaused ? <Play size={16} className="fill-white" /> : <Pause size={16} className="fill-white" />}
+          {isPaused ? <Play size={12} className="fill-white" /> : <Pause size={12} className="fill-white" />}
+          {isPaused ? ' Continuar' : ' Pausar'}
         </button>
       </div>
 
@@ -709,7 +746,7 @@ function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fa
       <div className="absolute inset-y-0 left-0 w-1/3 z-30 cursor-pointer" onClick={() => setIndex(index - 1)} />
       <div className="absolute inset-y-0 right-0 w-2/3 z-30 cursor-pointer" onClick={() => setIndex(index + 1)} />
       
-      <div className="absolute bottom-6 left-0 right-0 text-center z-40">
+      <div className="absolute bottom-20 left-0 right-0 text-center z-40">
         <p className="text-white/50 text-xs bg-black/30 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
           {index + 1} / {photos.length}
         </p>
@@ -722,17 +759,6 @@ function GalleryViewer({ album, photos, onPhotoClick, theme }) {
   return (
     <div className="w-full h-full overflow-y-auto pt-20 pb-24 px-4 bg-black">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-3">
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#d4af37]">
-              <img src={album.profileImage} alt="Profile" className="w-full h-full object-cover" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-semibold text-white mb-1">{album.clientName}</h1>
-          <p className="text-sm text-white/50">{album.subtitle}</p>
-          <p className="text-xs text-[#d4af37] mt-2">{photos.length} fotos</p>
-        </div>
-
         <div className="columns-2 md:columns-3 gap-3 space-y-3">
           {photos.map((photo, idx) => (
             <div 
