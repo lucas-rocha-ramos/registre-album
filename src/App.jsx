@@ -6,36 +6,52 @@ import {
   BarChart3, Award, Search, Upload, Save
 } from 'lucide-react';
 
-// Configuração do JSONBin.io (serviço gratuito para armazenar JSON)
-// Crie uma conta em https://jsonbin.io e pegue seu API Key
-const JSONBIN_API_KEY = '$2a$10$0E3dtk.SNGb.pG9o2bARces3dWidtcHAYo9kfhBBhIcC4soxpUnom'; // Substitua pelo seu API Key
-const JSONBIN_BIN_ID = '6a21ac7ef5f4af5e29b93859'; // Substitua pelo ID do seu bin
+// Configuração da API - backend do Vercel
+const API_URL = '/api/github';
 
-// Funções para salvar/carregar do JSONBin.io
-const saveAlbumsToCloud = async (albums) => {
+// Funções para salvar/carregar do GitHub via backend
+const saveAlbumsToCloud = async (album) => {
   try {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_API_KEY
-      },
-      body: JSON.stringify({ albums })
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: album.shortId,
+        album: album
+      })
     });
-    return response.ok;
+    const data = await response.json();
+    return data.success;
   } catch (error) {
     console.error('Erro ao salvar:', error);
     return false;
   }
 };
 
-const loadAlbumsFromCloud = async () => {
+const loadAlbumFromCloud = async (shortId) => {
   try {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
+    const response = await fetch(`${API_URL}?id=${shortId}`);
     const data = await response.json();
-    return data.record.albums || {};
+    if (data.success && data.album) {
+      return data.album;
+    }
+    return null;
   } catch (error) {
     console.error('Erro ao carregar:', error);
+    return null;
+  }
+};
+
+const loadAllAlbumsFromCloud = async () => {
+  try {
+    const response = await fetch(API_URL);
+    const data = await response.json();
+    if (data.success && data.albums) {
+      return data.albums;
+    }
+    return {};
+  } catch (error) {
+    console.error('Erro ao carregar todos:', error);
     return {};
   }
 };
@@ -74,13 +90,12 @@ export default function App() {
   // Carregar álbuns da nuvem ao iniciar
   useEffect(() => {
     const loadCloudAlbums = async () => {
-      const cloudAlbums = await loadAlbumsFromCloud();
+      const cloudAlbums = await loadAllAlbumsFromCloud();
       const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
       
-      // Mesclar álbuns da nuvem com os locais
       const mergedAlbums = [...localAlbums];
       for (const [id, album] of Object.entries(cloudAlbums)) {
-        if (!mergedAlbums.find(a => a.id === id)) {
+        if (!mergedAlbums.find(a => a.id === album.id)) {
           mergedAlbums.push(album);
         }
       }
@@ -124,13 +139,10 @@ function AlbumLoader({ shortId }) {
   useEffect(() => {
     const loadAlbum = async () => {
       try {
-        const cloudAlbums = await loadAlbumsFromCloud();
-        const albumData = cloudAlbums[shortId];
-        
+        const albumData = await loadAlbumFromCloud(shortId);
         if (albumData) {
           setAlbum(albumData);
         } else {
-          // Tentar buscar nos álbuns locais do navegador
           const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
           const localAlbum = localAlbums.find(a => a.shortId === shortId);
           if (localAlbum) {
@@ -190,20 +202,11 @@ function AdminDashboard({ albums, setAlbums }) {
 
   const handleSaveToCloud = async (album) => {
     setSavingToCloud(true);
-    
-    // Carregar álbuns existentes na nuvem
-    const existingAlbums = await loadAlbumsFromCloud();
-    
-    // Adicionar/atualizar o álbum
-    existingAlbums[album.shortId] = album;
-    
-    // Salvar de volta
-    const success = await saveAlbumsToCloud(existingAlbums);
-    
+    const success = await saveAlbumsToCloud(album);
     if (success) {
       alert('✅ Álbum publicado com sucesso! O link agora funciona em qualquer dispositivo.');
     } else {
-      alert('❌ Erro ao publicar. Tente novamente.');
+      alert('❌ Erro ao publicar. Verifique as configurações do GitHub.');
     }
     setSavingToCloud(false);
   };
@@ -568,7 +571,6 @@ function AdminEditor({ album, onSave, onCancel }) {
   );
 }
 
-// Componente ClientApp (igual ao anterior)
 function ClientApp({ album }) {
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
   const [photos, setPhotos] = useState(album.photos || []);
