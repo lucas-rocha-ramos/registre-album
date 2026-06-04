@@ -123,6 +123,73 @@ export default function App() {
     }} onCancel={() => window.location.hash = ''} />;
   }
 
+  // Componente da Visão do Cliente (O que estava faltando)
+function ClientApp({ album }) {
+  return (
+    <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12">
+      {/* Cabeçalho do Álbum */}
+      <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
+        {/* Imagem de Fundo (Pega a primeira das destacadas ou de perfil) */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
+          style={{ backgroundImage: `url(${album.profileImage || album.photos[0]})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent" />
+        
+        <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-col sm:flex-row items-end sm:items-center gap-6">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0">
+            <img 
+              src={album.profileImage || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
+              alt="Capa do Álbum" 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 tracking-tight">
+              {album.clientName}
+            </h1>
+            <p className="text-[#d4af37] text-sm sm:text-base uppercase tracking-widest font-medium">
+              {album.subtitle || 'Álbum Fotográfico'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Grade de Fotos */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
+          <button className="flex items-center gap-2 text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full transition-colors">
+            <Download size={16} /> Baixar Todas
+          </button>
+        </div>
+
+        {album.photos && album.photos.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {album.photos.map((photo, idx) => (
+              <div key={idx} className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden bg-gray-900 border border-white/10">
+                <img 
+                  src={photo} 
+                  alt={`Foto ${idx + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <Eye size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 text-gray-500">
+            <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
+            <p>Nenhuma foto disponível neste álbum.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
   if (hash.startsWith('#edit_')) {
     const albumId = hash.replace('#edit_', '');
     const album = albums.find(a => a.id === albumId);
