@@ -6,50 +6,37 @@ import {
   BarChart3, Award, Search, Upload, Save
 } from 'lucide-react';
 
-// Configuração do GitHub
-const GITHUB_REPO = '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'; // Ex: 'joao/meu-album'
-const GITHUB_TOKEN = process.env.REACT_APP_GITHUB_TOKEN || ''; // Token pessoal do GitHub
+// Configuração do JSONBin.io (serviço gratuito para armazenar JSON)
+// Crie uma conta em https://jsonbin.io e pegue seu API Key
+const JSONBIN_API_KEY = '$2a$10$zKqXO6RqKX.O9XaXcXcXcXcXcXcXcXcXcXcX'; // Substitua pelo seu API Key
+const JSONBIN_BIN_ID = 'SEU_BIN_ID'; // Substitua pelo ID do seu bin
 
-// Funções para salvar/carregar do GitHub
-const saveAlbumToGitHub = async (album) => {
+// Funções para salvar/carregar do JSONBin.io
+const saveAlbumsToCloud = async (albums) => {
   try {
-    // Primeiro, buscar o arquivo atual
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/albums.json`);
-    const data = await response.json();
-    const content = JSON.parse(atob(data.content));
-    
-    // Adicionar ou atualizar o álbum
-    content.albums[album.shortId] = album;
-    
-    // Salvar de volta
-    const updatedContent = btoa(JSON.stringify(content, null, 2));
-    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/albums.json`, {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
       method: 'PUT',
       headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
         'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_API_KEY
       },
-      body: JSON.stringify({
-        message: `Adicionar álbum: ${album.clientName}`,
-        content: updatedContent,
-        sha: data.sha
-      })
+      body: JSON.stringify({ albums })
     });
-    return true;
+    return response.ok;
   } catch (error) {
-    console.error('Erro ao salvar no GitHub:', error);
+    console.error('Erro ao salvar:', error);
     return false;
   }
 };
 
-const loadAlbumFromGitHub = async (shortId) => {
+const loadAlbumsFromCloud = async () => {
   try {
-    const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/main/albums.json`);
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
     const data = await response.json();
-    return data.albums[shortId];
+    return data.record.albums || {};
   } catch (error) {
-    console.error('Erro ao carregar do GitHub:', error);
-    return null;
+    console.error('Erro ao carregar:', error);
+    return {};
   }
 };
 
@@ -84,6 +71,26 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  // Carregar álbuns da nuvem ao iniciar
+  useEffect(() => {
+    const loadCloudAlbums = async () => {
+      const cloudAlbums = await loadAlbumsFromCloud();
+      const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
+      
+      // Mesclar álbuns da nuvem com os locais
+      const mergedAlbums = [...localAlbums];
+      for (const [id, album] of Object.entries(cloudAlbums)) {
+        if (!mergedAlbums.find(a => a.id === id)) {
+          mergedAlbums.push(album);
+        }
+      }
+      if (mergedAlbums.length > localAlbums.length) {
+        setAlbums(mergedAlbums);
+      }
+    };
+    loadCloudAlbums();
+  }, []);
+
   if (hash.startsWith('#/album/')) {
     const shortId = hash.replace('#/album/', '');
     return <AlbumLoader shortId={shortId} />;
@@ -108,7 +115,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente para carregar álbum do GitHub
+// Componente para carregar álbum da nuvem
 function AlbumLoader({ shortId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -117,11 +124,20 @@ function AlbumLoader({ shortId }) {
   useEffect(() => {
     const loadAlbum = async () => {
       try {
-        const albumData = await loadAlbumFromGitHub(shortId);
+        const cloudAlbums = await loadAlbumsFromCloud();
+        const albumData = cloudAlbums[shortId];
+        
         if (albumData) {
           setAlbum(albumData);
         } else {
-          setError(true);
+          // Tentar buscar nos álbuns locais do navegador
+          const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
+          const localAlbum = localAlbums.find(a => a.shortId === shortId);
+          if (localAlbum) {
+            setAlbum(localAlbum);
+          } else {
+            setError(true);
+          }
         }
       } catch (err) {
         setError(true);
@@ -156,7 +172,7 @@ function AlbumLoader({ shortId }) {
 
 function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
-  const [savingToGit, setSavingToGit] = useState(false);
+  const [savingToCloud, setSavingToCloud] = useState(false);
 
   const handleDelete = (id) => {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
@@ -172,15 +188,24 @@ function AdminDashboard({ albums, setAlbums }) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSaveToGitHub = async (album) => {
-    setSavingToGit(true);
-    const success = await saveAlbumToGitHub(album);
+  const handleSaveToCloud = async (album) => {
+    setSavingToCloud(true);
+    
+    // Carregar álbuns existentes na nuvem
+    const existingAlbums = await loadAlbumsFromCloud();
+    
+    // Adicionar/atualizar o álbum
+    existingAlbums[album.shortId] = album;
+    
+    // Salvar de volta
+    const success = await saveAlbumsToCloud(existingAlbums);
+    
     if (success) {
-      alert('Álbum salvo no GitHub com sucesso! O link agora funciona em qualquer dispositivo.');
+      alert('✅ Álbum publicado com sucesso! O link agora funciona em qualquer dispositivo.');
     } else {
-      alert('Erro ao salvar no GitHub. Configure o token corretamente.');
+      alert('❌ Erro ao publicar. Tente novamente.');
     }
-    setSavingToGit(false);
+    setSavingToCloud(false);
   };
 
   return (
@@ -236,11 +261,11 @@ function AdminDashboard({ albums, setAlbums }) {
                   </div>
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => handleSaveToGitHub(album)} 
-                      disabled={savingToGit}
+                      onClick={() => handleSaveToCloud(album)} 
+                      disabled={savingToCloud}
                       className="px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs bg-blue-600 text-white hover:bg-blue-700"
                     >
-                      {savingToGit ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      {savingToCloud ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                       Publicar
                     </button>
                     <button onClick={() => handleCopyLink(album)} className={`px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs ${copiedId === album.id ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}>
@@ -543,7 +568,7 @@ function AdminEditor({ album, onSave, onCancel }) {
   );
 }
 
-// Componente ClientApp (igual ao anterior, mantido)
+// Componente ClientApp (igual ao anterior)
 function ClientApp({ album }) {
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
   const [photos, setPhotos] = useState(album.photos || []);
