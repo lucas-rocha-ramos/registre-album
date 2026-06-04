@@ -3,28 +3,59 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  BarChart3, Award, Search, Upload
+  BarChart3, Award, Search, Upload, Save
 } from 'lucide-react';
 
-// Comprimir dados do álbum para o link
-const compressAlbumData = (data) => {
+// Configuração do GitHub
+const GITHUB_REPO = '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'; // Ex: 'joao/meu-album'
+const GITHUB_TOKEN = process.env.REACT_APP_GITHUB_TOKEN || ''; // Token pessoal do GitHub
+
+// Funções para salvar/carregar do GitHub
+const saveAlbumToGitHub = async (album) => {
   try {
-    const json = JSON.stringify(data);
-    return encodeURIComponent(json);
-  } catch (e) {
-    console.error("Erro ao comprimir:", e);
-    return '';
+    // Primeiro, buscar o arquivo atual
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/albums.json`);
+    const data = await response.json();
+    const content = JSON.parse(atob(data.content));
+    
+    // Adicionar ou atualizar o álbum
+    content.albums[album.shortId] = album;
+    
+    // Salvar de volta
+    const updatedContent = btoa(JSON.stringify(content, null, 2));
+    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/albums.json`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: `Adicionar álbum: ${album.clientName}`,
+        content: updatedContent,
+        sha: data.sha
+      })
+    });
+    return true;
+  } catch (error) {
+    console.error('Erro ao salvar no GitHub:', error);
+    return false;
   }
 };
 
-const decompressAlbumData = (hash) => {
+const loadAlbumFromGitHub = async (shortId) => {
   try {
-    const decoded = decodeURIComponent(hash);
-    return JSON.parse(decoded);
-  } catch (e) {
-    console.error("Erro ao descomprimir:", e);
-    throw new Error('Link inválido');
+    const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/main/albums.json`);
+    const data = await response.json();
+    return data.albums[shortId];
+  } catch (error) {
+    console.error('Erro ao carregar do GitHub:', error);
+    return null;
   }
+};
+
+// Gerar ID curto (6 caracteres)
+const generateShortId = () => {
+  return Math.random().toString(36).substring(2, 8);
 };
 
 export default function App() {
@@ -54,18 +85,8 @@ export default function App() {
   }, []);
 
   if (hash.startsWith('#/album/')) {
-    try {
-      const compressedData = hash.replace('#/album/', '');
-      const albumData = decompressAlbumData(compressedData);
-      return <ClientApp album={albumData} />;
-    } catch (e) {
-      console.error("Erro ao decodificar:", e);
-      return <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
-        <X size={48} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Link de álbum inválido ou corrompido</h2>
-        <p className="text-gray-400 text-sm">Verifique se o link foi copiado corretamente e tente novamente.</p>
-      </div>;
-    }
+    const shortId = hash.replace('#/album/', '');
+    return <AlbumLoader shortId={shortId} />;
   }
 
   if (hash === '#new') {
@@ -87,8 +108,55 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
+// Componente para carregar álbum do GitHub
+function AlbumLoader({ shortId }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [album, setAlbum] = useState(null);
+
+  useEffect(() => {
+    const loadAlbum = async () => {
+      try {
+        const albumData = await loadAlbumFromGitHub(shortId);
+        if (albumData) {
+          setAlbum(albumData);
+        } else {
+          setError(true);
+        }
+      } catch (err) {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAlbum();
+  }, [shortId]);
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-black text-white flex items-center justify-center">
+        <Loader2 size={40} className="animate-spin" />
+        <p className="ml-3">A carregar álbum...</p>
+      </div>
+    );
+  }
+
+  if (error || !album) {
+    return (
+      <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
+        <X size={48} className="text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Álbum não encontrado</h2>
+        <p className="text-gray-400 text-sm">Verifique o link e tente novamente.</p>
+      </div>
+    );
+  }
+
+  return <ClientApp album={album} />;
+}
+
 function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
+  const [savingToGit, setSavingToGit] = useState(false);
 
   const handleDelete = (id) => {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
@@ -97,11 +165,22 @@ function AdminDashboard({ albums, setAlbums }) {
   };
 
   const handleCopyLink = (album) => {
-    const compressed = compressAlbumData(album);
-    const url = `${window.location.origin}${window.location.pathname}#/album/${compressed}`;
+    const shortId = album.shortId;
+    const url = `${window.location.origin}${window.location.pathname}#/album/${shortId}`;
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleSaveToGitHub = async (album) => {
+    setSavingToGit(true);
+    const success = await saveAlbumToGitHub(album);
+    if (success) {
+      alert('Álbum salvo no GitHub com sucesso! O link agora funciona em qualquer dispositivo.');
+    } else {
+      alert('Erro ao salvar no GitHub. Configure o token corretamente.');
+    }
+    setSavingToGit(false);
   };
 
   return (
@@ -147,7 +226,7 @@ function AdminDashboard({ albums, setAlbums }) {
                 </div>
                 
                 <div className="bg-gray-50 p-3 rounded-xl text-sm text-gray-600 mb-4">
-                  📸 {album.photos?.length || 0} fotos
+                  📸 {album.photos?.length || 0} fotos | 🔑 ID: {album.shortId || 'não definido'}
                 </div>
                   
                 <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
@@ -155,9 +234,20 @@ function AdminDashboard({ albums, setAlbums }) {
                     <button onClick={() => window.location.hash = `#edit_${album.id}`} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"><Edit3 size={18} /></button>
                     <button onClick={() => handleDelete(album.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
                   </div>
-                  <button onClick={() => handleCopyLink(album)} className={`px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 text-sm ${copiedId === album.id ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}>
-                    {copiedId === album.id ? <><CheckCircle size={16} /> Copiado</> : <><LinkIcon size={16} /> Copiar Link</>}
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleSaveToGitHub(album)} 
+                      disabled={savingToGit}
+                      className="px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      {savingToGit ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      Publicar
+                    </button>
+                    <button onClick={() => handleCopyLink(album)} className={`px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs ${copiedId === album.id ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}>
+                      {copiedId === album.id ? <CheckCircle size={12} /> : <LinkIcon size={12} />}
+                      Copiar Link
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -172,6 +262,7 @@ function AdminEditor({ album, onSave, onCancel }) {
   const isNew = !album;
   const [formData, setFormData] = useState(album || {
     id: 'album_' + Math.random().toString(36).substr(2, 9),
+    shortId: generateShortId(),
     clientName: '',
     subtitle: '',
     pin: '',
@@ -452,6 +543,7 @@ function AdminEditor({ album, onSave, onCancel }) {
   );
 }
 
+// Componente ClientApp (igual ao anterior, mantido)
 function ClientApp({ album }) {
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
   const [photos, setPhotos] = useState(album.photos || []);
