@@ -6,13 +6,20 @@ import {
   BarChart3, Award, WifiOff, Search
 } from 'lucide-react';
 
-const encodeAlbumData = (albumId) => albumId;
-const decodeAlbumData = (hash) => {
-  const saved = localStorage.getItem('studio_albums_v2');
-  const albums = saved ? JSON.parse(saved) : [];
-  const album = albums.find(a => a.id === hash);
-  if (!album) throw new Error('Álbum não encontrado');
-  return album;
+// Funções para comprimir/descomprimir os dados do álbum
+const compressAlbumData = (data) => {
+  const json = JSON.stringify(data);
+  // Usar encodeURIComponent para reduzir tamanho
+  return encodeURIComponent(json);
+};
+
+const decompressAlbumData = (hash) => {
+  try {
+    const decoded = decodeURIComponent(hash);
+    return JSON.parse(decoded);
+  } catch (e) {
+    throw new Error('Link inválido');
+  }
 };
 
 export default function App() {
@@ -43,11 +50,16 @@ export default function App() {
 
   if (hash.startsWith('#/album/')) {
     try {
-      const albumId = hash.replace('#/album/', '');
-      const albumData = decodeAlbumData(albumId);
+      const compressedData = hash.replace('#/album/', '');
+      const albumData = decompressAlbumData(compressedData);
       return <ClientApp album={albumData} />;
     } catch (e) {
-      return <div className="h-screen bg-black text-white flex items-center justify-center">Link de álbum inválido ou corrompido.</div>;
+      console.error("Erro ao decodificar:", e);
+      return <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
+        <X size={48} className="text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Link de álbum inválido ou corrompido</h2>
+        <p className="text-gray-400 text-sm">Verifique se o link foi copiado corretamente e tente novamente.</p>
+      </div>;
     }
   }
 
@@ -80,7 +92,8 @@ function AdminDashboard({ albums, setAlbums }) {
   };
 
   const handleCopyLink = (album) => {
-    const url = `${window.location.origin}${window.location.pathname}#/album/${album.id}`;
+    const compressed = compressAlbumData(album);
+    const url = `${window.location.origin}${window.location.pathname}#/album/${compressed}`;
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -658,7 +671,6 @@ function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fa
 
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
-      {/* Header Centralizado */}
       <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 to-transparent pt-12 pb-6">
         <div className="text-center">
           <div className="flex justify-center mb-2">
@@ -683,11 +695,9 @@ function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fa
         />
       </div>
 
-      {/* Navigation */}
       <div className="absolute inset-y-0 left-0 w-1/3 z-30 cursor-pointer" onClick={() => setIndex(index - 1)} />
       <div className="absolute inset-y-0 right-0 w-2/3 z-30 cursor-pointer" onClick={() => setIndex(index + 1)} />
       
-      {/* Counter */}
       <div className="absolute bottom-6 left-0 right-0 text-center z-40">
         <p className="text-white/50 text-xs bg-black/30 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
           {index + 1} / {photos.length}
@@ -701,7 +711,6 @@ function GalleryViewer({ album, photos, onPhotoClick, theme }) {
   return (
     <div className="w-full h-full overflow-y-auto pt-20 pb-24 px-4 bg-black">
       <div className="max-w-4xl mx-auto">
-        {/* Cabeçalho centralizado */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-3">
             <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#d4af37]">
@@ -713,7 +722,6 @@ function GalleryViewer({ album, photos, onPhotoClick, theme }) {
           <p className="text-xs text-[#d4af37] mt-2">{photos.length} fotos</p>
         </div>
 
-        {/* Grid estilo Pinterest/Masonry - mantém proporções originais */}
         <div className="columns-2 md:columns-3 gap-3 space-y-3">
           {photos.map((photo, idx) => (
             <div 
