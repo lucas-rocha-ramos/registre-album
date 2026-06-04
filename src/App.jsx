@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 // Configuração da API do Google Sheets
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec'; // Ex: https://script.google.com/macros/s/.../exec
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec'; // Substitua pela sua URL do App da Web se necessário
 
 // Funções para salvar/carregar do Google Sheets
 const saveAlbumToSheets = async (album) => {
@@ -15,7 +15,7 @@ const saveAlbumToSheets = async (album) => {
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // AQUI ESTÁ A CORREÇÃO DO CORS
       body: JSON.stringify({
         id: album.shortId,
         album: album
@@ -184,7 +184,7 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  return <ClientApp album={album} />;
+  return <ClientApp album={album} />; // Atenção: Certifique-se de que o componente ClientApp exista no seu projeto
 }
 
 function AdminDashboard({ albums, setAlbums }) {
@@ -211,7 +211,7 @@ function AdminDashboard({ albums, setAlbums }) {
     if (success) {
       alert('✅ Álbum publicado no Google Sheets! Link funciona em qualquer dispositivo.');
     } else {
-      alert('❌ Erro ao publicar. Verifique a URL da API.');
+      alert('❌ Erro ao publicar. Verifique a URL da API e as permissões.');
     }
     setSavingToCloud(false);
   };
@@ -575,6 +575,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-// Componentes ClientApp, WelcomeScreen, StoryViewer, GalleryViewer (manter iguais aos anteriores)
-// Continuar com os componentes do código anterior...
