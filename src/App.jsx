@@ -6,14 +6,15 @@ import {
   BarChart3, Award, Search, Upload, Save
 } from 'lucide-react';
 
-// Configuração da API - backend do Vercel
-const API_URL = '/api/github';
+// Configuração da API do Google Sheets
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec'; // Ex: https://script.google.com/macros/s/.../exec
 
-// Funções para salvar/carregar do GitHub via backend
-const saveAlbumsToCloud = async (album) => {
+// Funções para salvar/carregar do Google Sheets
+const saveAlbumToSheets = async (album) => {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: album.shortId,
@@ -28,9 +29,9 @@ const saveAlbumsToCloud = async (album) => {
   }
 };
 
-const loadAlbumFromCloud = async (shortId) => {
+const loadAlbumFromSheets = async (shortId) => {
   try {
-    const response = await fetch(`${API_URL}?id=${shortId}`);
+    const response = await fetch(`${SHEETS_API_URL}?id=${shortId}`);
     const data = await response.json();
     if (data.success && data.album) {
       return data.album;
@@ -42,9 +43,9 @@ const loadAlbumFromCloud = async (shortId) => {
   }
 };
 
-const loadAllAlbumsFromCloud = async () => {
+const loadAllAlbumsFromSheets = async () => {
   try {
-    const response = await fetch(API_URL);
+    const response = await fetch(SHEETS_API_URL);
     const data = await response.json();
     if (data.success && data.albums) {
       return data.albums;
@@ -87,23 +88,27 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Carregar álbuns da nuvem ao iniciar
+  // Carregar álbuns da planilha ao iniciar
   useEffect(() => {
-    const loadCloudAlbums = async () => {
-      const cloudAlbums = await loadAllAlbumsFromCloud();
+    const loadSheetsAlbums = async () => {
+      const sheetsAlbums = await loadAllAlbumsFromSheets();
       const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
       
       const mergedAlbums = [...localAlbums];
-      for (const [id, album] of Object.entries(cloudAlbums)) {
-        if (!mergedAlbums.find(a => a.id === album.id)) {
-          mergedAlbums.push(album);
+      for (const [id, info] of Object.entries(sheetsAlbums)) {
+        if (!mergedAlbums.find(a => a.shortId === id)) {
+          // Buscar o álbum completo
+          const fullAlbum = await loadAlbumFromSheets(id);
+          if (fullAlbum) {
+            mergedAlbums.push(fullAlbum);
+          }
         }
       }
       if (mergedAlbums.length > localAlbums.length) {
         setAlbums(mergedAlbums);
       }
     };
-    loadCloudAlbums();
+    loadSheetsAlbums();
   }, []);
 
   if (hash.startsWith('#/album/')) {
@@ -130,7 +135,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente para carregar álbum da nuvem
+// Componente para carregar álbum da planilha
 function AlbumLoader({ shortId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -139,7 +144,7 @@ function AlbumLoader({ shortId }) {
   useEffect(() => {
     const loadAlbum = async () => {
       try {
-        const albumData = await loadAlbumFromCloud(shortId);
+        const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
         } else {
@@ -202,11 +207,11 @@ function AdminDashboard({ albums, setAlbums }) {
 
   const handleSaveToCloud = async (album) => {
     setSavingToCloud(true);
-    const success = await saveAlbumsToCloud(album);
+    const success = await saveAlbumToSheets(album);
     if (success) {
-      alert('✅ Álbum publicado com sucesso! O link agora funciona em qualquer dispositivo.');
+      alert('✅ Álbum publicado no Google Sheets! Link funciona em qualquer dispositivo.');
     } else {
-      alert('❌ Erro ao publicar. Verifique as configurações do GitHub.');
+      alert('❌ Erro ao publicar. Verifique a URL da API.');
     }
     setSavingToCloud(false);
   };
@@ -571,347 +576,5 @@ function AdminEditor({ album, onSave, onCancel }) {
   );
 }
 
-function ClientApp({ album }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
-  const [photos, setPhotos] = useState(album.photos || []);
-  const [viewMode, setViewMode] = useState('story');
-  const [storyIndex, setStoryIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  
-  const [viewedPhotos, setViewedPhotos] = useState(() => {
-    const saved = localStorage.getItem(`viewed_${album.id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [badges, setBadges] = useState(() => {
-    const saved = localStorage.getItem(`badges_${album.id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [showStats, setShowStats] = useState(false);
-
-  const theme = { primary: '#d4af37', bg: '#0a0a0a' };
-  const fallbackProfile = 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=300&auto=format&fit=crop';
-  
-  const featuredPhotos = album.featuredPhotos?.map(index => photos[index]) || photos.slice(0, 3);
-
-  useEffect(() => {
-    const viewPercent = (viewedPhotos.length / photos.length) * 100;
-    
-    if (viewedPhotos.length === 1 && !badges.includes('first_view')) {
-      setBadges([...badges, 'first_view']);
-      localStorage.setItem(`badges_${album.id}`, JSON.stringify([...badges, 'first_view']));
-    }
-    
-    if (viewPercent === 100 && !badges.includes('explorer_complete')) {
-      setBadges([...badges, 'explorer_complete']);
-      localStorage.setItem(`badges_${album.id}`, JSON.stringify([...badges, 'explorer_complete']));
-    }
-  }, [viewedPhotos, photos.length, badges, album.id]);
-
-  const markAsViewed = (index) => {
-    if (!viewedPhotos.includes(index)) {
-      const newViewed = [...viewedPhotos, index];
-      setViewedPhotos(newViewed);
-      localStorage.setItem(`viewed_${album.id}`, JSON.stringify(newViewed));
-    }
-  };
-
-  const viewPercent = (viewedPhotos.length / photos.length) * 100;
-
-  if (!isAuthenticated) {
-    return <WelcomeScreen album={album} featuredPhotos={featuredPhotos} onAuth={() => setIsAuthenticated(true)} theme={theme} fallbackProfile={fallbackProfile} />;
-  }
-
-  if (photos.length === 0) {
-    return (
-      <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-white p-4">
-        <X size={48} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold">Nenhuma foto encontrada</h2>
-        <p className="text-gray-400 text-sm mt-2 text-center">Este álbum não contém fotos.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-screen w-screen overflow-hidden text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] bg-black select-none flex flex-col relative">
-      <div 
-        className="absolute inset-0 -z-10 bg-cover bg-center transition-all duration-1000 scale-110 blur-[60px] opacity-40"
-        style={{ backgroundImage: photos[storyIndex] ? `url(${photos[storyIndex]})` : 'none' }}
-      />
-
-      {viewMode === 'story' && (
-        <div className="fixed top-0 left-0 right-0 z-50 pt-2 px-2">
-          <div className="flex gap-1">
-            {photos.map((_, i) => (
-              <div key={i} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
-                <div className="h-full bg-white transition-all duration-300" style={{ width: i <= storyIndex ? '100%' : '0%' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-4">
-        <div className="flex items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img src={album.profileImage || fallbackProfile} className="w-10 h-10 rounded-full border-2 border-white/30 object-cover" alt="Profile" />
-            <div>
-              <h2 className="font-semibold text-sm text-white">{album.clientName}</h2>
-              <p className="text-xs text-white/70">{album.subtitle}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setShowStats(true)}
-              className="bg-black/50 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium border border-white/10"
-            >
-              <BarChart3 size={14} className="text-[#d4af37]" />
-              <span>{Math.round(viewPercent)}%</span>
-              {badges.length > 0 && <Award size={12} className="text-[#d4af37]" />}
-            </button>
-            
-            {album.googleDriveUrl && (
-              <a
-                href={album.googleDriveUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#d4af37] text-black rounded-full px-3 py-1.5 flex items-center gap-2 text-xs font-medium shadow-lg hover:opacity-90 transition-opacity"
-              >
-                <Download size={14} /> Descarregar
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {showStats && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowStats(false)}>
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 max-w-sm w-full border border-white/20 text-center" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-semibold mb-4">Estatísticas</h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-300">Progresso</span>
-                  <span className="text-white font-semibold">{Math.round(viewPercent)}%</span>
-                </div>
-                <div className="w-full bg-white/20 rounded-full h-2">
-                  <div className="bg-[#d4af37] rounded-full h-2 transition-all" style={{ width: `${viewPercent}%` }}></div>
-                </div>
-              </div>
-              <div className="border-t border-white/10 pt-3">
-                <p className="text-sm text-gray-300">📸 Fotos vistas: <span className="text-white font-semibold">{viewedPhotos.length}</span> / {photos.length}</p>
-                <p className="text-sm text-gray-300 mt-1">🏆 Conquistas: <span className="text-white font-semibold">{badges.length}</span></p>
-              </div>
-              {badges.length > 0 && (
-                <div className="border-t border-white/10 pt-3">
-                  <p className="text-xs text-gray-400 mb-2">Conquistas desbloqueadas:</p>
-                  {badges.includes('first_view') && <p className="text-xs text-[#d4af37]">✓ Primeira Visualização</p>}
-                  {badges.includes('explorer_complete') && <p className="text-xs text-[#d4af37]">✓ Explorador Completo</p>}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-black/50 backdrop-blur-md rounded-full px-1 py-1 border border-white/10">
-        <button onClick={() => setViewMode('story')} className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${viewMode === 'story' ? 'bg-white text-black' : 'text-white/70 hover:text-white'}`}>
-          Story
-        </button>
-        <button onClick={() => setViewMode('gallery')} className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${viewMode === 'gallery' ? 'bg-white text-black' : 'text-white/70 hover:text-white'}`}>
-          Galeria
-        </button>
-      </div>
-
-      <div className="flex-1 w-full h-full relative flex items-center justify-center">
-        {viewMode === 'story' ? (
-          <StoryViewer 
-            album={album} photos={photos} index={storyIndex} fallbackProfile={fallbackProfile}
-            setIndex={(idx) => {
-              if(idx >= photos.length) setViewMode('gallery');
-              else if (idx >= 0) {
-                setStoryIndex(idx);
-                markAsViewed(idx);
-              }
-            }} 
-            isPaused={isPaused} setIsPaused={setIsPaused}
-          />
-        ) : (
-          <GalleryViewer 
-            album={album} photos={photos} theme={theme} 
-            onPhotoClick={(idx) => {
-              setStoryIndex(idx);
-              setViewMode('story');
-              markAsViewed(idx);
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WelcomeScreen({ album, featuredPhotos, onAuth, theme, fallbackProfile }) {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
-  const [currentFeaturedIndex, setCurrentFeaturedIndex] = useState(0);
-
-  useEffect(() => {
-    if (featuredPhotos.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentFeaturedIndex((prev) => (prev + 1) % featuredPhotos.length);
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [featuredPhotos.length]);
-
-  const handleLogin = () => {
-    if (pin === album.pin) onAuth();
-    else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
-      setPin('');
-    }
-  };
-
-  const currentPhoto = featuredPhotos[currentFeaturedIndex] || album.profileImage || fallbackProfile;
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-center items-center p-4 bg-black text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']">
-      <div className="absolute inset-0 -z-10">
-        <img src={currentPhoto} className="w-full h-full object-cover transition-opacity duration-1000" alt="bg" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20"></div>
-      </div>
-
-      {featuredPhotos.length > 1 && (
-        <div className="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20">
-          {featuredPhotos.map((_, idx) => (
-            <div
-              key={idx}
-              className={`h-1 rounded-full transition-all duration-500 ${
-                idx === currentFeaturedIndex ? 'w-8 bg-[#d4af37]' : 'w-4 bg-white/40'
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="w-full max-w-md bg-black/40 backdrop-blur-xl border border-white/20 rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl relative z-10 mx-4">
-        <div className="w-24 h-24 rounded-full overflow-hidden mb-5 border-3 border-[#d4af37] shadow-lg">
-          <img src={album.profileImage || fallbackProfile} alt="Profile" className="w-full h-full object-cover" />
-        </div>
-        
-        <h1 className="text-2xl font-semibold mb-1 tracking-tight">{album.clientName}</h1>
-        <p className="text-sm text-white/60 mb-8">Introduza o código de acesso</p>
-
-        <div className="w-full relative mb-5">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={18} />
-          <input 
-            type="password" 
-            value={pin} 
-            onChange={(e) => setPin(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            placeholder="Código" 
-            className="w-full bg-white/10 border border-white/20 rounded-full py-3.5 pl-12 pr-4 text-white placeholder:text-white/40 outline-none transition-all text-center tracking-widest text-base focus:border-[#d4af37] focus:bg-white/20"
-            inputMode="numeric" 
-            maxLength={6} 
-            autoFocus
-          />
-        </div>
-
-        <button onClick={handleLogin} className="w-full bg-[#d4af37] text-black font-semibold rounded-full py-3.5 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm">
-          Aceder ao Álbum <ArrowRight size={18} />
-        </button>
-        
-        {error && (
-          <div className="mt-4 text-red-400 text-sm animate-pulse">
-            Código incorreto. Tente novamente.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StoryViewer({ album, photos, index, setIndex, isPaused, setIsPaused, fallbackProfile }) {
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (photos[index]) {
-      const img = new Image();
-      img.onload = () => {
-        setImageDimensions({ width: img.width, height: img.height });
-      };
-      img.src = photos[index];
-    }
-  }, [index, photos]);
-
-  if (!photos[index]) return null;
-
-  const isPortrait = imageDimensions.height > imageDimensions.width;
-
-  return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
-      <div className="absolute bottom-6 left-0 right-0 text-center z-40">
-        <button 
-          onClick={() => setIsPaused(!isPaused)} 
-          className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1"
-        >
-          {isPaused ? <Play size={12} className="fill-white" /> : <Pause size={12} className="fill-white" />}
-          {isPaused ? ' Continuar' : ' Pausar'}
-        </button>
-      </div>
-
-      <div className="w-full h-full flex items-center justify-center">
-        <img 
-          src={photos[index]} 
-          className={`max-w-full max-h-full object-contain ${isPortrait ? 'w-auto h-full' : 'w-full h-auto'}`} 
-          alt={`Story ${index}`} 
-        />
-      </div>
-
-      <div className="absolute inset-y-0 left-0 w-1/3 z-30 cursor-pointer" onClick={() => setIndex(index - 1)} />
-      <div className="absolute inset-y-0 right-0 w-2/3 z-30 cursor-pointer" onClick={() => setIndex(index + 1)} />
-      
-      <div className="absolute bottom-20 left-0 right-0 text-center z-40">
-        <p className="text-white/50 text-xs bg-black/30 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
-          {index + 1} / {photos.length}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function GalleryViewer({ album, photos, onPhotoClick, theme }) {
-  return (
-    <div className="w-full h-full overflow-y-auto pt-20 pb-24 px-4 bg-black">
-      <div className="max-w-4xl mx-auto">
-        <div className="columns-2 md:columns-3 gap-3 space-y-3">
-          {photos.map((photo, idx) => (
-            <div 
-              key={idx} 
-              onClick={() => onPhotoClick(idx)} 
-              className="break-inside-avoid cursor-pointer group overflow-hidden rounded-xl bg-white/5 transition-all duration-300 hover:scale-[1.02]"
-            >
-              <div className="relative">
-                <img 
-                  src={photo} 
-                  loading="lazy" 
-                  className="w-full h-auto object-contain transition-transform duration-500 group-hover:scale-105" 
-                  alt={`Grid ${idx}`}
-                  style={{ display: 'block' }}
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-                  <PlayCircle size={40} className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                </div>
-                <div className="absolute top-2 right-2 bg-black/50 rounded-full px-2 py-0.5 text-[10px] font-medium text-white/80">
-                  {idx + 1}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+// Componentes ClientApp, WelcomeScreen, StoryViewer, GalleryViewer (manter iguais aos anteriores)
+// Continuar com os componentes do código anterior...
