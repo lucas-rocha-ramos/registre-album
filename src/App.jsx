@@ -15,7 +15,7 @@ const saveAlbumToSheets = async (album) => {
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // AQUI ESTÁ A CORREÇÃO DO CORS
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORREÇÃO DO CORS
       body: JSON.stringify({
         id: album.shortId,
         album: album
@@ -135,7 +135,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente (Ajustado com Abas, Senha e Stories)
+// Componente da Visão do Cliente (Com Abas, Senha e Animação de Stories)
 function ClientApp({ album }) {
   const [pinInput, setPinInput] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
@@ -254,10 +254,10 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* RENDERIZAÇÃO DAS ABAS */}
+      {/* CONTEÚDO DAS ABAS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         {activeTab === 'gallery' ? (
-          // CONTÉUDO: ABA GALERIA
+          /* ABA GALERIA */
           <>
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
@@ -290,12 +290,12 @@ function ClientApp({ album }) {
             )}
           </>
         ) : (
-          // CONTÉUDO: ANIMAÇÃO STORIES
+          /* ABA ANIMAÇÃO STORIES */
           <div className="flex justify-center items-center py-4">
             {album.photos && album.photos.length > 0 ? (
               <div className="relative w-full max-w-md aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between">
                 
-                {/* Indicadores de Linha de Tempo superiores */}
+                {/* Linhas de progresso superiores estilo Instagram */}
                 <div className="absolute top-4 inset-x-4 flex gap-1.5 z-30">
                   {album.photos.map((_, idx) => (
                     <div key={idx} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
@@ -312,7 +312,7 @@ function ClientApp({ album }) {
                   ))}
                 </div>
 
-                {/* Top Overlay Actions */}
+                {/* Controles superiores do Story */}
                 <div className="absolute top-8 inset-x-4 flex justify-between items-center z-30 px-2">
                   <span className="text-xs font-medium text-white drop-shadow">
                     {currentStoryIdx + 1} de {album.photos.length}
@@ -333,7 +333,7 @@ function ClientApp({ album }) {
                   </div>
                 </div>
 
-                {/* Exibição da Imagem Principal */}
+                {/* Container da Foto Centralizada */}
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950">
                   <img 
                     src={album.photos[currentStoryIdx]} 
@@ -342,7 +342,7 @@ function ClientApp({ album }) {
                   />
                 </div>
 
-                {/* Regiões de Toque Invisíveis para Navegar */}
+                {/* Regiões laterais invisíveis para toque (Voltar / Avançar) */}
                 <div className="absolute inset-0 z-20 flex">
                   <div 
                     className="w-[35%] h-full cursor-w-resize" 
@@ -356,7 +356,7 @@ function ClientApp({ album }) {
                       if (currentStoryIdx < album.photos.length - 1) {
                         setCurrentStoryIdx(currentStoryIdx + 1);
                       } else {
-                        setCurrentStoryIdx(0); // Reinicia ao fim
+                        setCurrentStoryIdx(0); // Volta ao início no fim
                       }
                     }}
                   />
@@ -399,7 +399,7 @@ function AlbumLoader({ shortId }) {
         }
       } catch (err) {
         setError(true);
-      } fillly {
+      } finally {
         setLoading(false);
       }
     };
