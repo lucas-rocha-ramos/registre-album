@@ -6,35 +6,25 @@ import {
   BarChart3, Award, Search, Upload
 } from 'lucide-react';
 
-// Função para gerar slug amigável (preserva o ID completo no final)
-const generateSlug = (name, id) => {
-  const cleanName = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  // Mantém o ID completo no final para busca
-  return `${cleanName}---${id}`;
+// Comprimir dados do álbum para o link
+const compressAlbumData = (data) => {
+  try {
+    const json = JSON.stringify(data);
+    return encodeURIComponent(json);
+  } catch (e) {
+    console.error("Erro ao comprimir:", e);
+    return '';
+  }
 };
 
-// Extrair ID do slug
-const extractIdFromSlug = (slug) => {
-  const parts = slug.split('---');
-  return parts[parts.length - 1];
-};
-
-// Salvar álbum no localStorage global
-const saveAlbumToGlobal = (album) => {
-  const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-  albums[album.id] = album;
-  localStorage.setItem('global_albums', JSON.stringify(albums));
-};
-
-const getAlbumFromGlobal = (id) => {
-  const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-  return albums[id];
+const decompressAlbumData = (hash) => {
+  try {
+    const decoded = decodeURIComponent(hash);
+    return JSON.parse(decoded);
+  } catch (e) {
+    console.error("Erro ao descomprimir:", e);
+    throw new Error('Link inválido');
+  }
 };
 
 export default function App() {
@@ -46,7 +36,6 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('studio_albums_v2', JSON.stringify(albums));
-    albums.forEach(album => saveAlbumToGlobal(album));
   }, [albums]);
 
   useEffect(() => {
@@ -66,26 +55,11 @@ export default function App() {
 
   if (hash.startsWith('#/album/')) {
     try {
-      const slug = hash.replace('#/album/', '');
-      
-      // Extrair o ID do slug
-      const albumId = extractIdFromSlug(slug);
-      
-      // Buscar o álbum pelo ID
-      let albumData = getAlbumFromGlobal(albumId);
-      
-      // Se não encontrou, tentar buscar na lista de álbuns
-      if (!albumData) {
-        albumData = albums.find(a => a.id === albumId);
-      }
-      
-      if (albumData) {
-        return <ClientApp album={albumData} />;
-      } else {
-        throw new Error('Álbum não encontrado');
-      }
+      const compressedData = hash.replace('#/album/', '');
+      const albumData = decompressAlbumData(compressedData);
+      return <ClientApp album={albumData} />;
     } catch (e) {
-      console.error("Erro ao encontrar álbum:", e);
+      console.error("Erro ao decodificar:", e);
       return <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
         <X size={48} className="text-red-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Link de álbum inválido ou corrompido</h2>
@@ -118,17 +92,13 @@ function AdminDashboard({ albums, setAlbums }) {
 
   const handleDelete = (id) => {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
-      const newAlbums = albums.filter(a => a.id !== id);
-      setAlbums(newAlbums);
-      const globalAlbums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-      delete globalAlbums[id];
-      localStorage.setItem('global_albums', JSON.stringify(globalAlbums));
+      setAlbums(albums.filter(a => a.id !== id));
     }
   };
 
   const handleCopyLink = (album) => {
-    const slug = generateSlug(album.clientName, album.id);
-    const url = `${window.location.origin}${window.location.pathname}#/album/${slug}`;
+    const compressed = compressAlbumData(album);
+    const url = `${window.location.origin}${window.location.pathname}#/album/${compressed}`;
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
