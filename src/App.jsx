@@ -9,7 +9,7 @@ import {
 // Configuração do JSONBin.io (serviço gratuito para armazenar JSON)
 // Crie uma conta em https://jsonbin.io e pegue seu API Key
 const JSONBIN_API_KEY = '$2a$10$0E3dtk.SNGb.pG9o2bARces3dWidtcHAYo9kfhBBhIcC4soxpUnom'; // Substitua pelo seu API Key
-const JSONBIN_BIN_ID = '6a21a79dda38895dfe8795a1'; // Substitua pelo ID do seu bin
+const JSONBIN_BIN_ID = '6a21ac7ef5f4af5e29b93859'; // Substitua pelo ID do seu bin
 
 // Funções para salvar/carregar do JSONBin.io
 const saveAlbumsToCloud = async (albums) => {
