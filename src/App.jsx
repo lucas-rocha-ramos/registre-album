@@ -135,13 +135,78 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente (Movido para fora de App)
+// Componente da Visão do Cliente (Ajustado com Abas, Senha e Stories)
 function ClientApp({ album }) {
+  const [pinInput, setPinInput] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
+  const [pinError, setPinError] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState('gallery'); // 'gallery' ou 'stories'
+  const [currentStoryIdx, setCurrentStoryIdx] = useState(0);
+  const [isStoryPlaying, setIsStoryPlaying] = useState(true);
+
+  // Controle de reprodução automática dos Stories
+  useEffect(() => {
+    let interval;
+    if (activeTab === 'stories' && isStoryPlaying && album.photos?.length > 0) {
+      interval = setInterval(() => {
+        setCurrentStoryIdx((prev) => {
+          if (prev < album.photos.length - 1) {
+            return prev + 1;
+          } else {
+            return 0; // Reinicia em loop
+          }
+        });
+      }, 4000); // 4 segundos por foto
+    }
+    return () => clearInterval(interval);
+  }, [activeTab, isStoryPlaying, album.photos]);
+
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+    if (pinInput === album.pin) {
+      setIsAuthenticated(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
+
+  // 1. TELA DE BLOQUEIO POR SENHA (PIN)
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4">
+        <div className="max-w-md w-full bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center shadow-2xl">
+          <div className="bg-[#d4af37]/10 text-[#d4af37] w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#d4af37]/20">
+            <Lock size={28} />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight mb-2">{album.clientName}</h2>
+          <p className="text-gray-400 text-sm mb-6">Este álbum é privado. Introduza o PIN de acesso para visualizar as fotos.</p>
+          
+          <form onSubmit={handlePinSubmit} className="space-y-4">
+            <input
+              type="password"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="Introduza o PIN"
+              className="w-full bg-white/10 border border-white/10 rounded-xl p-3 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-[#d4af37] focus:border-transparent transition-all"
+            />
+            {pinError && <p className="text-red-500 text-xs mt-1">PIN incorreto. Tente novamente.</p>}
+            <button type="submit" className="w-full bg-[#d4af37] hover:bg-[#c4a137] text-black font-semibold p-3 rounded-xl transition-all flex items-center justify-center gap-2 mt-2">
+              Acessar Álbum <ArrowRight size={18} />
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. CONTEÚDO PRINCIPAL DO ÁLBUM
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12">
       {/* Cabeçalho do Álbum */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
-        {/* Imagem de Fundo (Pega a primeira das destacadas ou de perfil) */}
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
           style={{ backgroundImage: `url(${album.profileImage || album.photos[0]})` }}
@@ -167,35 +232,143 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* Grade de Fotos */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
-          <button className="flex items-center gap-2 text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full transition-colors">
-            <Download size={16} /> Baixar Todas
+      {/* SELETOR DE ABAS */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="flex justify-center border-b border-white/10 gap-8">
+          <button 
+            onClick={() => setActiveTab('gallery')}
+            className={`pb-4 text-sm font-semibold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all ${activeTab === 'gallery' ? 'border-[#d4af37] text-[#d4af37]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          >
+            <Grid size={16} /> Aba Galeria
+          </button>
+          <button 
+            onClick={() => {
+              setActiveTab('stories');
+              setCurrentStoryIdx(0);
+              setIsStoryPlaying(true);
+            }}
+            className={`pb-4 text-sm font-semibold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all ${activeTab === 'stories' ? 'border-[#d4af37] text-[#d4af37]' : 'border-transparent text-gray-400 hover:text-white'}`}
+          >
+            <PlayCircle size={16} /> Animação Stories
           </button>
         </div>
+      </div>
 
-        {album.photos && album.photos.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {album.photos.map((photo, idx) => (
-              <div key={idx} className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden bg-gray-900 border border-white/10">
-                <img 
-                  src={photo} 
-                  alt={`Foto ${idx + 1}`} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
-                  <Eye size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </div>
+      {/* RENDERIZAÇÃO DAS ABAS */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+        {activeTab === 'gallery' ? (
+          // CONTÉUDO: ABA GALERIA
+          <>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
+              <button className="flex items-center gap-2 text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full transition-colors">
+                <Download size={16} /> Baixar Todas
+              </button>
+            </div>
+
+            {album.photos && album.photos.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {album.photos.map((photo, idx) => (
+                  <div key={idx} className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden bg-gray-900 border border-white/10">
+                    <img 
+                      src={photo} 
+                      alt={`Foto ${idx + 1}`} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                      <Eye size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="text-center py-20 text-gray-500">
+                <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Nenhuma foto disponível neste álbum.</p>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="text-center py-20 text-gray-500">
-            <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
-            <p>Nenhuma foto disponível neste álbum.</p>
+          // CONTÉUDO: ANIMAÇÃO STORIES
+          <div className="flex justify-center items-center py-4">
+            {album.photos && album.photos.length > 0 ? (
+              <div className="relative w-full max-w-md aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between">
+                
+                {/* Indicadores de Linha de Tempo superiores */}
+                <div className="absolute top-4 inset-x-4 flex gap-1.5 z-30">
+                  {album.photos.map((_, idx) => (
+                    <div key={idx} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full bg-white transition-all duration-300 ${
+                          idx < currentStoryIdx ? 'w-full' : idx === currentStoryIdx ? (isStoryPlaying ? 'w-full duration-[4000ms] linear' : 'w-[50%]') : 'w-0'
+                        }`}
+                        style={{
+                          transitionProperty: idx === currentStoryIdx && isStoryPlaying ? 'width' : 'none',
+                          transitionTimingFunction: 'linear'
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Overlay Actions */}
+                <div className="absolute top-8 inset-x-4 flex justify-between items-center z-30 px-2">
+                  <span className="text-xs font-medium text-white drop-shadow">
+                    {currentStoryIdx + 1} de {album.photos.length}
+                  </span>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setIsStoryPlaying(!isStoryPlaying)} 
+                      className="text-white bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/10 hover:bg-black/40"
+                    >
+                      {isStoryPlaying ? <Pause size={16} /> : <Play size={16} />}
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('gallery')} 
+                      className="text-white bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/10 hover:bg-black/40"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Exibição da Imagem Principal */}
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950">
+                  <img 
+                    src={album.photos[currentStoryIdx]} 
+                    alt={`Story ${currentStoryIdx + 1}`} 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                {/* Regiões de Toque Invisíveis para Navegar */}
+                <div className="absolute inset-0 z-20 flex">
+                  <div 
+                    className="w-[35%] h-full cursor-w-resize" 
+                    onClick={() => {
+                      if (currentStoryIdx > 0) setCurrentStoryIdx(currentStoryIdx - 1);
+                    }}
+                  />
+                  <div 
+                    className="w-[65%] h-full cursor-e-resize" 
+                    onClick={() => {
+                      if (currentStoryIdx < album.photos.length - 1) {
+                        setCurrentStoryIdx(currentStoryIdx + 1);
+                      } else {
+                        setCurrentStoryIdx(0); // Reinicia ao fim
+                      }
+                    }}
+                  />
+                </div>
+
+              </div>
+            ) : (
+              <div className="text-center py-20 text-gray-500">
+                <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Nenhuma foto disponível para exibição em Stories.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -226,7 +399,7 @@ function AlbumLoader({ shortId }) {
         }
       } catch (err) {
         setError(true);
-      } finally {
+      } fillly {
         setLoading(false);
       }
     };
