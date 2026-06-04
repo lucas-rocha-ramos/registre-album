@@ -25,7 +25,6 @@ export default async function handler(req, res) {
       });
       
       if (response.status === 404) {
-        // Arquivo não existe, criar vazio
         return { content: '{"albums":{}}', sha: null };
       }
       
@@ -87,24 +86,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'Álbum salvo com sucesso' });
     }
     return res.status(500).json({ success: false, error: 'Erro ao salvar' });
-  }
-
-  if (req.method === 'DELETE') {
-    const { id } = req.query;
-    if (!id) {
-      return res.status(400).json({ success: false, error: 'ID é obrigatório' });
-    }
-    
-    const { content, sha } = await getGitHubFile();
-    const data = JSON.parse(content);
-    delete data.albums[id];
-    
-    const success = await saveGitHubFile(JSON.stringify(data, null, 2), sha);
-    
-    if (success) {
-      return res.status(200).json({ success: true });
-    }
-    return res.status(500).json({ success: false, error: 'Erro ao deletar' });
   }
 
   return res.status(405).json({ success: false, error: 'Método não permitido' });
