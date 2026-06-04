@@ -6,7 +6,7 @@ import {
   BarChart3, Award, Search, Upload
 } from 'lucide-react';
 
-// Função para gerar slug amigável
+// Função para gerar slug amigável (preserva o ID completo no final)
 const generateSlug = (name, id) => {
   const cleanName = name
     .toLowerCase()
@@ -15,21 +15,26 @@ const generateSlug = (name, id) => {
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  return `${cleanName}-${id.slice(-8)}`;
+  // Mantém o ID completo no final para busca
+  return `${cleanName}---${id}`;
+};
+
+// Extrair ID do slug
+const extractIdFromSlug = (slug) => {
+  const parts = slug.split('---');
+  return parts[parts.length - 1];
 };
 
 // Salvar álbum no localStorage global
 const saveAlbumToGlobal = (album) => {
   const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
   albums[album.id] = album;
-  const slug = generateSlug(album.clientName, album.id);
-  albums[slug] = album;
   localStorage.setItem('global_albums', JSON.stringify(albums));
 };
 
-const getAlbumFromGlobal = (identifier) => {
+const getAlbumFromGlobal = (id) => {
   const albums = JSON.parse(localStorage.getItem('global_albums') || '{}');
-  return albums[identifier];
+  return albums[id];
 };
 
 export default function App() {
@@ -61,11 +66,17 @@ export default function App() {
 
   if (hash.startsWith('#/album/')) {
     try {
-      const identifier = hash.replace('#/album/', '');
-      let albumData = getAlbumFromGlobal(identifier);
+      const slug = hash.replace('#/album/', '');
       
+      // Extrair o ID do slug
+      const albumId = extractIdFromSlug(slug);
+      
+      // Buscar o álbum pelo ID
+      let albumData = getAlbumFromGlobal(albumId);
+      
+      // Se não encontrou, tentar buscar na lista de álbuns
       if (!albumData) {
-        albumData = albums.find(a => a.id === identifier || generateSlug(a.clientName, a.id) === identifier);
+        albumData = albums.find(a => a.id === albumId);
       }
       
       if (albumData) {
@@ -237,7 +248,6 @@ function AdminEditor({ album, onSave, onCancel }) {
         let addedCount = validPhotos.length;
         
         if (updateOnly) {
-          // Filtrar apenas fotos que ainda não existem
           const existingUrls = new Set(extractedPhotos);
           newPhotos = [...extractedPhotos];
           let count = 0;
@@ -539,7 +549,6 @@ function ClientApp({ album }) {
         style={{ backgroundImage: photos[storyIndex] ? `url(${photos[storyIndex]})` : 'none' }}
       />
 
-      {/* Progress Bar - aparece APENAS no modo Story */}
       {viewMode === 'story' && (
         <div className="fixed top-0 left-0 right-0 z-50 pt-2 px-2">
           <div className="flex gap-1">
@@ -552,7 +561,6 @@ function ClientApp({ album }) {
         </div>
       )}
 
-      {/* Header com informações alinhadas */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-4">
         <div className="flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -587,7 +595,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* Stats Modal */}
       {showStats && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowStats(false)}>
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 max-w-sm w-full border border-white/20 text-center" onClick={(e) => e.stopPropagation()}>
@@ -618,7 +625,6 @@ function ClientApp({ album }) {
         </div>
       )}
 
-      {/* Navigation */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-black/50 backdrop-blur-md rounded-full px-1 py-1 border border-white/10">
         <button onClick={() => setViewMode('story')} className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${viewMode === 'story' ? 'bg-white text-black' : 'text-white/70 hover:text-white'}`}>
           Story
