@@ -432,7 +432,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - COM SISTEMA ANTI-ACELERAMENTO E SUPORTE DE TICKER CONTROLADO DE 5 SEGUNDOS
+// Componente AlbumLoader - COM SISTEMA ANTI-ACELERAMENTO E FIX INTELECTUAL DE SLOTS DE ANIMAÇÃO ESTÁVEIS
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -444,7 +444,9 @@ function AlbumLoader({ shortId }) {
   const [loadingPhotos, setLoadingPhotos] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
     const found = localAlbums.find(a => a.shortId === shortId);
-    return found?.photos?.slice(0, 4) || [];
+    const initial = found?.photos?.slice(0, 4) || [];
+    while (initial.length < 4) initial.push('');
+    return initial;
   }); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
   const [allPhotosList, setAllPhotosList] = useState(() => {
@@ -498,7 +500,11 @@ function AlbumLoader({ shortId }) {
           setAlbum(albumData);
           setAllPhotosList(albumData.photos || []);
           setStatus('preloading');
-          setLoadingPhotos(prev => prev.length > 0 ? prev : (albumData.photos?.slice(0, 4) || []));
+          setLoadingPhotos(prev => {
+            const initial = albumData.photos?.slice(0, 4) || [];
+            while (initial.length < 4) initial.push('');
+            return initial;
+          });
           preloadImages(albumData.photos, albumData.profileImage);
         } else {
           const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -520,7 +526,6 @@ function AlbumLoader({ shortId }) {
     loadAlbum();
   }, [shortId]);
 
-  // ENGINE DO PROGRESSO VISUAL: Roda fluido de 1% em 1% a cada 50ms (Garante 5s exatos se já estiver em cache)
   useEffect(() => {
     if (status !== 'preloading') return;
 
@@ -534,7 +539,6 @@ function AlbumLoader({ shortId }) {
           }
           return prev + 1;
         } else {
-          // Se ainda está baixando via rede lenta, progride suavemente sem ultrapassar o progresso real da rede
           if (prev < actualProgress) {
             return prev + 1;
           }
@@ -546,16 +550,19 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // Ciclo rítmico das fotos acoplado estritamente ao progresso visual (Impede acelerações caóticas do cache)
+  // Alocação em slots fixos por índice para congelar a imagem no card durante todo o ciclo do voo
   useEffect(() => {
     if (visualProgress > 0 && allPhotosList.length > 0) {
       const photoIndex = Math.floor((visualProgress / 100) * allPhotosList.length);
       const targetPhoto = allPhotosList[photoIndex % allPhotosList.length];
 
       if (targetPhoto) {
+        const currentSlot = photoIndex % 4; // Determina qual canal/card vai receber a imagem
         setLoadingPhotos((prev) => {
-          if (prev.includes(targetPhoto)) return prev;
-          return [targetPhoto, ...prev].slice(0, 4);
+          if (prev[currentSlot] === targetPhoto) return prev;
+          const next = [...prev];
+          next[currentSlot] = targetPhoto; // Substitui estritamente a vaga correspondente sem dar Unshift
+          return next;
         });
         setShakeTrigger(prev => prev + 1);
         vibrar();
@@ -601,9 +608,10 @@ function AlbumLoader({ shortId }) {
             
             {loadingPhotos.map((imgUrl, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
+              if (!imgUrl) return null;
               return (
                 <div 
-                  key={i} 
+                  key={`${i}-${imgUrl}`} // Unifica índice e URL numa chave imutável para reiniciar o ciclo do voo de forma limpa apenas ao trocar a imagem
                   className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-20 ${classes[i]}`} 
                 >
                   <img src={imgUrl} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
