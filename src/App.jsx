@@ -536,12 +536,13 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // SPAWN DAS FOTOS: Envia um card calmamente em intervalos
+  // SPAWN DAS FOTOS: Envia um card individualmente com espaçamento maior entre eles
   useEffect(() => {
     if (status !== 'preloading' || allPhotosList.length === 0) return;
 
     let idx = 0;
-    const computedInterval = Math.max(80, Math.floor(5000 / allPhotosList.length));
+    // Aumentando o intervalo entre cards para dar mais espaçamento (400ms ao invés de 80ms)
+    const computedInterval = Math.max(400, Math.floor(5000 / allPhotosList.length));
 
     const spawnInterval = setInterval(() => {
       const targetPhoto = allPhotosList[idx % allPhotosList.length];
@@ -551,19 +552,26 @@ function AlbumLoader({ shortId }) {
         
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
         
-        // Exatamente no momento do impacto visual (2400ms): Vibra e adiciona a classe de pulsação
+        // Exatamente no momento do impacto visual (2200ms): Vibra e adiciona a classe de pulsação
         setTimeout(() => {
           vibrar();
           
           const profileEl = document.getElementById('profile-pulse');
           if (profileEl) {
             profileEl.classList.remove('profile-hardware-vibrate');
-            void profileEl.offsetWidth; // Força o reflow do navegador, ativando a animação novamente
+            void profileEl.offsetWidth; // Força o reflow do navegador
             profileEl.classList.add('profile-hardware-vibrate');
+            
+            // Remove a classe após a animação terminar para não acumular
+            setTimeout(() => {
+              if (profileEl) {
+                profileEl.classList.remove('profile-hardware-vibrate');
+              }
+            }, 200);
           }
           
           setFlyingCards(current => current.filter(c => c.id !== cardId));
-        }, 2400); 
+        }, 2200); 
       }
       idx++;
     }, computedInterval); 
@@ -603,14 +611,14 @@ function AlbumLoader({ shortId }) {
             80% { transform: scale(1.01) translate(1px, 1px); }
             100% { transform: scale(1); }
           }
-          .flying-card-1 { animation: flyCenter1 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-2 { animation: flyCenter2 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-3 { animation: flyCenter3 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-4 { animation: flyCenter4 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-5 { animation: flyCenter5 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-6 { animation: flyCenter6 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-7 { animation: flyCenter7 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-8 { animation: flyCenter8 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-1 { animation: flyCenter1 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-2 { animation: flyCenter2 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-3 { animation: flyCenter3 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-4 { animation: flyCenter4 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-5 { animation: flyCenter5 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-6 { animation: flyCenter6 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-7 { animation: flyCenter7 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-8 { animation: flyCenter8 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
           .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
         `}} />
 
