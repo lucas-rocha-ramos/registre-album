@@ -200,7 +200,7 @@ function ClientApp({ album }) {
     }
   };
 
-  // TELA DE LOGIN COM PIN (FOTOS DE DESTAQUE PASSANDO DE FUNDO)
+  // TELA DE LOGIN COM PIN (FOTOS DE DESTAQUE EXCLUSIVAS PASSANDO NO FUNDO)
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -243,7 +243,6 @@ function ClientApp({ album }) {
               className="w-full bg-white/10 border border-white/10 rounded-xl p-3 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-[#d4af37] focus:border-transparent transition-all placeholder:text-gray-500 text-white"
             />
             {pinError && <p className="text-red-500 text-xs font-medium">PIN inválido. Tente novamente.</p>}
-            <input type="submit" style={{display: 'none'}} />
             <button type="submit" className="w-full bg-[#d4af37] hover:bg-[#c4a137] text-black font-bold p-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] duration-200">
               Desbloquear Galeria <ArrowRight size={18} />
             </button>
@@ -253,11 +252,11 @@ function ClientApp({ album }) {
     );
   }
 
-  // INTERFACE INTERNA DO ÁLBUM (PERFIL E NOME ALINHADOS À ESQUERDA)
+  // INTERFACE INTERNA (CABEÇALHO ALINHADO NO LADO ESQUERDO)
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria - Alinhado 100% à esquerda (Estilo Apple) */}
+      {/* Cabeçalho da Galeria - 100% Alinhado à Esquerda */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -265,7 +264,7 @@ function ClientApp({ album }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent" />
         
-        <div className="absolute bottom-0 left-0 w-full p-4 sm:p-10 flex flex-row items-center gap-4 sm:gap-6 text-left">
+        <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-row items-center justify-start gap-4 sm:gap-6 text-left">
           <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900">
             <img 
               src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
@@ -273,7 +272,7 @@ function ClientApp({ album }) {
               className="w-full h-full object-cover" 
             />
           </div>
-          <div className="flex-1">
+          <div className="flex flex-col items-start justify-center">
             <h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2 tracking-tight">
               {album.clientName}
             </h1>
@@ -369,7 +368,7 @@ function ClientApp({ album }) {
                 ))}
               </div>
 
-              {/* Controles de Topo (Estilo Apple/Insta com Perfil) */}
+              {/* Controles de Topo (Estilo Insta com Perfil) */}
               <div className="absolute top-8 sm:top-9 inset-x-4 sm:inset-x-5 flex justify-between items-center z-30 px-1">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/20 shadow-sm bg-neutral-800">
@@ -439,17 +438,21 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader (Com Animação Sequencial de Todas as Fotos + Vibração Haptica)
+// Componente AlbumLoader (Com Animação e Pré-Carregamento Real Otimizado)
 function AlbumLoader({ shortId }) {
-  const [status, setStatus] = useState('fetching'); // fetching, preloading, ready, error
+  const [status, setStatus] = useState('fetching'); 
   const [progress, setProgress] = useState(0);
   const [album, setAlbum] = useState(null);
-  const [loadingPhotos, setLoadingPhotos] = useState([]); // Guarda as últimas fotos carregadas para o efeito mecânico um a um
+  const [loadingPhotos, setLoadingPhotos] = useState([]); 
+  const [shakeTrigger, setShakeTrigger] = useState(0); 
 
-  // Função para carregar as fotos na memória de forma sequencial controlada
+  // Função para carregar as fotos priorizando o perfil para renderização instantânea
   const preloadImages = (photos, profileImage) => {
-    const allUrls = [...(photos || [])];
-    if (profileImage && !allUrls.includes(profileImage)) allUrls.push(profileImage);
+    const priorityUrls = [];
+    if (profileImage) priorityUrls.push(profileImage);
+    
+    const remainingPhotos = (photos || []).filter(url => url !== profileImage);
+    const allUrls = [...priorityUrls, ...remainingPhotos];
 
     if (allUrls.length === 0) {
       setProgress(100);
@@ -463,25 +466,31 @@ function AlbumLoader({ shortId }) {
     allUrls.forEach(url => {
       const img = new Image();
       img.src = url;
+      
       const handleLoad = () => {
         loaded++;
         setProgress(Math.round((loaded / total) * 100));
         
-        // Empurra a foto recém-carregada para o topo da pilha de animação (efeito uma a uma)
+        // Empurra a foto carregada para o topo do fluxo da animação um a um
         setLoadingPhotos(prev => {
+          if (prev.includes(url)) return prev;
           const next = [url, ...prev];
           return next.slice(0, 4);
         });
 
-        // Efeito Apple Haptic: Pequena vibradinha física a cada foto inserida com sucesso no álbum
+        // Força a remount visual para a animação tátil de vibração
+        setShakeTrigger(prev => prev + 1);
+
+        // Desbloqueia a vibração física hática nos telemóveis compatíveis
         if (navigator.vibrate) {
-          navigator.vibrate(15); 
+          navigator.vibrate(20); 
         }
 
         if (loaded === total) {
-          setTimeout(() => setStatus('ready'), 800);
+          setTimeout(() => setStatus('ready'), 600);
         }
       };
+      
       img.onload = handleLoad;
       img.onerror = handleLoad; 
     });
@@ -523,42 +532,61 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  // TELA UNIFICADA: "CRIANDO SEU ÁLBUM" + ANIMAÇÃO DINÂMICA DE TODAS AS FOTOS DO ÁLBUM ENTRANDO NO PERFIL
+  // TELA UNIFICADA: ANIMAÇÃO SEQUENCIAL PERFEITAMENTE CENTRALIZADA COM O PERFIL
   if (status === 'fetching' || status === 'preloading') {
     return (
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
-        {/* Estilos das animações balísticas injetadas na UI */}
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-300px, -200px) scale(0.2) rotate(-30deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter2 { 0% { transform: translate(320px, -150px) scale(0.2) rotate(40deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-250px, 250px) scale(0.2) rotate(-15deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter4 { 0% { transform: translate(280px, 280px) scale(0.2) rotate(25deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
+          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.1) rotate(-45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.1) rotate(45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.1) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.1) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
-          .flying-card-1 { animation: flyCenter1 2.2s infinite ease-in-out; }
-          .flying-card-2 { animation: flyCenter2 2s infinite ease-in-out; animation-delay: 0.3s; }
-          .flying-card-3 { animation: flyCenter3 2.4s infinite ease-in-out; animation-delay: 0.1s; }
-          .flying-card-4 { animation: flyCenter4 2.1s infinite ease-in-out; animation-delay: 0.5s; }
+          @keyframes hardwareVibration {
+            0%, 100% { transform: scale(1); }
+            20%, 60% { transform: scale(1.03) translate(-1.5px, 1px); }
+            40%, 80% { transform: scale(1.03) translate(1.5px, -1px); }
+          }
+          .flying-card-1 { animation: flyCenter1 1.4s infinite ease-in; }
+          .flying-card-2 { animation: flyCenter2 1.3s infinite ease-in; animation-delay: 0.2s; }
+          .flying-card-3 { animation: flyCenter3 1.5s infinite ease-in; animation-delay: 0.1s; }
+          .flying-card-4 { animation: flyCenter4 1.35s infinite ease-in; animation-delay: 0.3s; }
+          .profile-hardware-vibrate { animation: hardwareVibration 0.12s ease-out; }
         `}} />
 
-        {/* Fotos reais carregadas sequencialmente flutuando para dentro do Perfil */}
-        {loadingPhotos.map((imgUrl, i) => {
-          const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
-          return (
-            <div key={imgUrl + i} className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} style={{ top: 'calc(50% - 40px)', left: 'calc(50% - 40px)' }}>
-              <img src={imgUrl} alt="Efeito" className="w-full h-full object-cover blur-[0.5px]" />
-            </div>
-          );
-        })}
-
-        {/* Perfil Central e Barra de Estado */}
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.2)] mb-6 bg-neutral-900 transition-transform duration-500 hover:scale-105">
-            {album?.profileImage || album?.photos?.[0] ? (
-              <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-neutral-800 animate-pulse" />
-            )}
+          
+          {/* CONTAINER DA ANIMAÇÃO CENTRALIZADA COM O PERFIL */}
+          <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
+            
+            {/* Fotos Reais entrando no container de forma concêntrica */}
+            {loadingPhotos.map((imgUrl, i) => {
+              const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
+              return (
+                <div 
+                  key={imgUrl + i} 
+                  className={`absolute w-16 h-16 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} 
+                  style={{ top: 'calc(50% - 32px)', left: 'calc(50% - 32px)' }}
+                >
+                  <img src={imgUrl} alt="Asset" className="w-full h-full object-cover" />
+                </div>
+              );
+            })}
+
+            {/* Círculo do Perfil com Vibração de Impacto Vinculada */}
+            <div 
+              key={shakeTrigger}
+              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-10 relative profile-hardware-vibrate"
+            >
+              {album?.profileImage || album?.photos?.[0] ? (
+                <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-neutral-800 animate-pulse flex items-center justify-center">
+                  <Camera size={24} className="text-neutral-600" />
+                </div>
+              )}
+            </div>
           </div>
           
           <h2 className="text-2xl font-bold tracking-tight text-white mb-1 drop-shadow">
@@ -778,7 +806,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       setExtractionError(true);
       setExtractionMessage('Erro ao conectar com a API. Tente novamente.');
       if (!updateOnly) setExtractedPhotos([]);
-    } finally {
+    } fillly {
       setTimeout(() => {
         setIsExtracting(false);
         clearInterval(progressInterval);
