@@ -607,7 +607,7 @@ function AlbumLoader({ shortId }) {
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           
-          <div className="relative w-40 h-40 mb-6 flex items-center justify-center">
+          <div className="relative w-90 h-90 mb-6 flex items-center justify-center">
             
             {/* CARDS NO TAMANHO EXATO DA IMAGEM DE PERFIL (w-32 h-32) - VINDO DE 8 DIREÇÕES */}
             {flyingCards.map((card) => {
