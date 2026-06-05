@@ -618,7 +618,7 @@ function AlbumLoader({ shortId }) {
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           
-          <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
+          <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
             
             {/* CARDS COM O TAMANHO DO PERFIL (w-32 h-32) - VINDO DE 8 DIREÇÕES */}
             {flyingCards.map((card) => {
@@ -629,7 +629,7 @@ function AlbumLoader({ shortId }) {
               return (
                 <div 
                   key={card.id} 
-                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
+                  className={`absolute inset-0 m-auto w-80 h-80 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
                 >
                   <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
                 </div>
