@@ -200,7 +200,7 @@ function ClientApp({ album }) {
     }
   };
 
-  // TELA DE LOGIN COM PIN
+  // TELA DE LOGIN COM PIN (FOTOS DE DESTAQUE EXCLUSIVAS PASSANDO NO FUNDO)
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -252,11 +252,11 @@ function ClientApp({ album }) {
     );
   }
 
-  // INTERFACE INTERNA DO CLIENTE
+  // INTERFACE INTERNA (CABEÇALHO ALINHADO NO LADO ESQUERDO)
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria - Alinhado no Lado Esquerdo */}
+      {/* Cabeçalho da Galeria - 100% Alinhado à Esquerda */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -438,7 +438,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader (Com Animação e Pré-Carregamento Real Otimizado)
+// Componente AlbumLoader (Com Animação Sequencial Otimizada de Alta Velocidade de Render)
 function AlbumLoader({ shortId }) {
   const [status, setStatus] = useState('fetching'); 
   const [progress, setProgress] = useState(0);
@@ -446,7 +446,6 @@ function AlbumLoader({ shortId }) {
   const [loadingPhotos, setLoadingPhotos] = useState([]); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
 
-  // Função para carregar as fotos na memória
   const preloadImages = (photos, profileImage) => {
     const priorityUrls = [];
     if (profileImage) priorityUrls.push(profileImage);
@@ -479,8 +478,9 @@ function AlbumLoader({ shortId }) {
 
         setShakeTrigger(prev => prev + 1);
 
-        if (navigator.vibrate) {
-          navigator.vibrate(20); 
+        // Modelo exato de vibração de 200ms solicitado pelo usuário
+        if ('vibrate' in navigator) {
+          navigator.vibrate(200); 
         }
 
         if (loaded === total) {
@@ -500,6 +500,8 @@ function AlbumLoader({ shortId }) {
         if (albumData) {
           setAlbum(albumData);
           setStatus('preloading');
+          // Alimenta instantaneamente os slots iniciais para que a animação comece imediatamente paralela ao download
+          setLoadingPhotos(albumData.photos?.slice(0, 4) || []);
           preloadImages(albumData.photos, albumData.profileImage);
         } else {
           const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -507,6 +509,7 @@ function AlbumLoader({ shortId }) {
           if (localAlbum) {
             setAlbum(localAlbum);
             setStatus('preloading');
+            setLoadingPhotos(localAlbum.photos?.slice(0, 4) || []);
             preloadImages(localAlbum.photos, localAlbum.profileImage);
           } else {
             setStatus('error');
@@ -534,33 +537,34 @@ function AlbumLoader({ shortId }) {
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.1) rotate(-45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
-          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.1) rotate(45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.1) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
-          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.1) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.3) rotate(-45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.9) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.3) rotate(45deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.9) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.3) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.9) rotate(0deg); opacity: 0; } }
+          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.3) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0.9) rotate(0deg); opacity: 0; } }
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
           @keyframes hardwareVibration {
             0%, 100% { transform: scale(1); }
             20%, 60% { transform: scale(1.03) translate(-1.5px, 1px); }
             40%, 80% { transform: scale(1.03) translate(1.5px, -1px); }
           }
-          .flying-card-1 { animation: flyCenter1 1.4s infinite ease-in; }
-          .flying-card-2 { animation: flyCenter2 1.3s infinite ease-in; animation-delay: 0.2s; }
-          .flying-card-3 { animation: flyCenter3 1.5s infinite ease-in; animation-delay: 0.1s; }
-          .flying-card-4 { animation: flyCenter4 1.35s infinite ease-in; animation-delay: 0.3s; }
+          .flying-card-1 { animation: flyCenter1 3.2s infinite ease-in-out; }
+          .flying-card-2 { animation: flyCenter2 3.0s infinite ease-in-out; animation-delay: 0.5s; }
+          .flying-card-3 { animation: flyCenter3 3.5s infinite ease-in-out; animation-delay: 0.2s; }
+          .flying-card-4 { animation: flyCenter4 3.3s infinite ease-in-out; animation-delay: 0.8s; }
           .profile-hardware-vibrate { animation: hardwareVibration 0.12s ease-out; }
         `}} />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
+            {/* Imagens Maiores (w-24 h-24) perfeitamente integradas de forma concêntrica */}
             {loadingPhotos.map((imgUrl, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
                 <div 
                   key={imgUrl + i} 
-                  className={`absolute w-16 h-16 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} 
-                  style={{ top: 'calc(50% - 32px)', left: 'calc(50% - 32px)' }}
+                  className={`absolute w-24 h-24 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} 
+                  style={{ top: 'calc(50% - 48px)', left: 'calc(50% - 48px)' }}
                 >
                   <img src={imgUrl} alt="Asset" className="w-full h-full object-cover" />
                 </div>
@@ -798,7 +802,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       setExtractionError(true);
       setExtractionMessage('Erro ao conectar com a API. Tente novamente.');
       if (!updateOnly) setExtractedPhotos([]);
-    } finally { // <--- CORRIGIDO DE 'fillly' PARA 'finally' AQUI
+    } finally {
       setTimeout(() => {
         setIsExtracting(false);
         clearInterval(progressInterval);
