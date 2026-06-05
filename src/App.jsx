@@ -432,9 +432,8 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - INSTANCIAÇÃO DINÂMICA ANTIBUG DE SLOTS FIXOS
+// Componente AlbumLoader - INSTANCIAÇÃO DINÂMICA ANTIBUG COM PROGRESÃO FLUIDA CADENCIADA E PERFIL NA FRENTE (z-30)
 function AlbumLoader({ shortId }) {
-  // Inicialização síncrona inteligente do álbum direto do cache local para mostrar o Perfil de imediato
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
     return localAlbums.find(a => a.shortId === shortId) || null;
@@ -442,8 +441,6 @@ function AlbumLoader({ shortId }) {
   const [status, setStatus] = useState('fetching'); 
   const [actualProgress, setActualProgress] = useState(0);
   const [visualProgress, setVisualProgress] = useState(0);
-  
-  // Fila de gerenciamento dinâmico de instâncias independentes de cards
   const [flyingCards, setFlyingCards] = useState([]); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
   const [allPhotosList, setAllPhotosList] = useState(() => {
@@ -541,7 +538,6 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // FIX DO BUG: Criação de nós imutáveis e agendamento de destruição assíncrona pós-vôo
   useEffect(() => {
     if (visualProgress > 0 && allPhotosList.length > 0) {
       const photoIndex = Math.floor((visualProgress / 100) * allPhotosList.length);
@@ -550,22 +546,20 @@ function AlbumLoader({ shortId }) {
         let next = [...prev];
         let updated = false;
 
-        // Avalia de forma atômica para garantir que cada imagem tenha o seu próprio card exclusivo sem pular
         for (let i = 0; i <= photoIndex; i++) {
           const targetPhoto = allPhotosList[i % allPhotosList.length];
           if (!targetPhoto) continue;
           
           const cardId = `card-instance-${i}`;
           
-          // Se este card específico de índice estável ainda não foi gerado, cria o nó imutável
           if (!next.some(c => c.id === cardId)) {
             vibrar();
             setShakeTrigger(p => p + 1);
 
-            // Destrói estritamente a instância apenas após a animação de 2.2s concluir 100% do trajeto
+            // Tempo aumentado para 3.5s para bater exatamente com a nova velocidade reduzida e fluida
             setTimeout(() => {
               setFlyingCards(current => current.filter(c => c.id !== cardId));
-            }, 2200);
+            }, 3500);
 
             const cardType = (i % 4) + 1;
             next.push({ id: cardId, url: targetPhoto, type: cardType });
@@ -593,44 +587,47 @@ function AlbumLoader({ shortId }) {
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.4) rotate(-25deg); opacity: 0; } 20% { opacity: 1; } 80% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.4) rotate(25deg); opacity: 0; } 20% { opacity: 1; } 80% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.4) rotate(-15deg); opacity: 0; } 20% { opacity: 1; } 80% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.4) rotate(15deg); opacity: 0; } 20% { opacity: 1; } 80% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
           @keyframes hardwareVibration {
-            0%, 100% { transform: scale(1); }
-            20%, 60% { transform: scale(1.03) translate(-1px, 1px); }
-            40%, 80% { transform: scale(1.03) translate(1px, -1px); }
+            0% { transform: scale(1); }
+            20% { transform: scale(1.08) translate(-1.5px, 1px); box-shadow: 0 0 40px rgba(212,175,55,0.6); }
+            40% { transform: scale(1.03) translate(1.5px, -1px); }
+            60% { transform: scale(1.05) translate(-1px, -1px); box-shadow: 0 0 25px rgba(212,175,55,0.4); }
+            80% { transform: scale(1.01) translate(1px, 1px); }
+            100% { transform: scale(1); }
           }
-          .flying-card-1 { animation: flyCenter1 2.2s infinite ease-in-out; }
-          .flying-card-2 { animation: flyCenter2 2.0s infinite ease-in-out; animation-delay: 0.3s; }
-          .flying-card-3 { animation: flyCenter3 2.5s infinite ease-in-out; animation-delay: 0.1s; }
-          .flying-card-4 { animation: flyCenter4 2.3s infinite ease-in-out; animation-delay: 0.5s; }
-          .profile-hardware-vibrate { animation: hardwareVibration 0.15s ease-out; }
+          .flying-card-1 { animation: flyCenter1 3.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
+          .flying-card-2 { animation: flyCenter2 3.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.3s; }
+          .flying-card-3 { animation: flyCenter3 3.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.1s; }
+          .flying-card-4 { animation: flyCenter4 3.1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.5s; }
+          .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
         `}} />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* Renderização individual isolada baseada nas chaves estáveis de instâncias únicas */}
+            {/* CARDS COM z-10: Passam perfeitamente por baixo do perfil */}
             {flyingCards.map((card, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
                 <div 
                   key={card.id} 
-                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-20 ${classes[card.type - 1]}`} 
+                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
                 >
                   <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
                 </div>
               );
             })}
 
-            {/* Renderização imediata e estável da Foto de Perfil recuperada do cache */}
+            {/* PERFIL COM z-30 E PULSAÇÃO MECÂNICA REATIVA */}
             <div 
               key={shakeTrigger}
-              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-10 relative profile-hardware-vibrate"
+              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative profile-hardware-vibrate"
             >
               {album?.profileImage || album?.photos?.[0] ? (
                 <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
