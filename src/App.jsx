@@ -432,7 +432,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader COM ANIMAÇÃO DESACOPLADA, CARDS GRANDES E ENTRADA FLUIDA 100% DIRETA
+// Componente AlbumLoader - TOTALMENTE SUAVE, CARDS GRANDES E SINCRONIA IMPECÁVEL DE PULSAÇÃO
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -449,7 +449,6 @@ function AlbumLoader({ shortId }) {
     return found?.photos || [];
   });
 
-  // Função exata de vibração nativa (200ms)
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
@@ -515,7 +514,6 @@ function AlbumLoader({ shortId }) {
     loadAlbum();
   }, [shortId]);
 
-  // ENGINE DO PROGRESSO VISUAL: Garante que a barra ande fluidamente até ao fim sem saltos abruptos.
   useEffect(() => {
     if (status !== 'preloading') return;
 
@@ -540,7 +538,6 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // SPAWN CONSTANTE DAS FOTOS: A animação lança calmamente um card de cada vez!
   useEffect(() => {
     if (status !== 'preloading' || allPhotosList.length === 0) return;
 
@@ -553,7 +550,7 @@ function AlbumLoader({ shortId }) {
         
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
         
-        // Exatamente no fim da transição, remove o card, ativa a pulsação do perfil e vibra o dispositivo
+        // Perfeita sincronia: no momento milimétrico em que o CSS finaliza os 2.5s, disparase a pulsação
         setTimeout(() => {
           setShakeTrigger(p => p + 1);
           vibrar();
@@ -582,31 +579,31 @@ function AlbumLoader({ shortId }) {
         
         <style dangerouslySetInnerHTML={{__html: `
           @keyframes flyCenter1 { 
-            0% { transform: translate(-320px, -240px) scale(0.4) rotate(-30deg); opacity: 0; } 
+            0% { transform: translate(-340px, -260px) scale(0.3) rotate(-30deg); opacity: 0; } 
             15% { opacity: 1; } 
             100% { transform: translate(0, 0) scale(0); opacity: 0; } 
           }
           @keyframes flyCenter2 { 
-            0% { transform: translate(320px, -240px) scale(0.4) rotate(30deg); opacity: 0; } 
+            0% { transform: translate(340px, -260px) scale(0.3) rotate(30deg); opacity: 0; } 
             15% { opacity: 1; } 
             100% { transform: translate(0, 0) scale(0); opacity: 0; } 
           }
           @keyframes flyCenter3 { 
-            0% { transform: translate(-320px, 240px) scale(0.4) rotate(-15deg); opacity: 0; } 
+            0% { transform: translate(-340px, 260px) scale(0.4) rotate(-15deg); opacity: 0; } 
             15% { opacity: 1; } 
             100% { transform: translate(0, 0) scale(0); opacity: 0; } 
           }
           @keyframes flyCenter4 { 
-            0% { transform: translate(320px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 
+            0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 
             15% { opacity: 1; } 
             100% { transform: translate(0, 0) scale(0); opacity: 0; } 
           }
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
           @keyframes hardwareVibration {
             0% { transform: scale(1); }
-            20% { transform: scale(1.08) translate(-1.5px, 1px); box-shadow: 0 0 40px rgba(212,175,55,0.6); }
-            40% { transform: scale(1.03) translate(1.5px, -1px); }
-            60% { transform: scale(1.05) translate(-1px, -1px); box-shadow: 0 0 25px rgba(212,175,55,0.4); }
+            20% { transform: scale(1.12) translate(-2px, 1px); box-shadow: 0 0 45px rgba(212,175,55,0.7); }
+            40% { transform: scale(1.02) translate(2px, -1px); }
+            60% { transform: scale(1.06) translate(-1px, -1px); box-shadow: 0 0 30px rgba(212,175,55,0.4); }
             80% { transform: scale(1.01) translate(1px, 1px); }
             100% { transform: scale(1); }
           }
@@ -621,20 +618,20 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* CARDS COM z-10 E TAMANHO EXPANDIDO (w-28 h-28 / sm:w-32 sm:h-32) - ENTRAM FLUIDAMENTE ATRÁS DO PERFIL */}
+            {/* CARDS COM SINALIZADORES DE TAMANHO AMPLIADO DE EXTREMO IMPACTO VISUAL (w-44 h-44 / sm:w-52 sm:h-52) */}
             {flyingCards.map((card) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
                 <div 
                   key={card.id} 
-                  className={`absolute inset-0 m-auto w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
+                  className={`absolute inset-0 m-auto w-44 h-44 sm:w-52 sm:h-52 rounded-[32px] overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
                 >
                   <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
                 </div>
               );
             })}
 
-            {/* PERFIL COM z-30 E PULSAÇÃO MECÂNICA REATIVA NA FRENTE DE TUDO */}
+            {/* PERFIL COM z-30 E ENGINE DE PULSAÇÃO SINCRONIZADA */}
             <div 
               key={shakeTrigger}
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative profile-hardware-vibrate"
