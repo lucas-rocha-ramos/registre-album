@@ -282,7 +282,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* SELETOR DE ABAS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="flex justify-center border-b border-white/10 gap-8">
           <button 
@@ -304,7 +303,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* ABA GALERIA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
@@ -344,7 +342,6 @@ function ClientApp({ album }) {
         )}
       </div>
 
-      {/* OVERLAY: ANIMAÇÃO STORIES (TELA CHEIA) */}
       {activeTab === 'stories' && (
         <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center sm:p-6 animate-fadeIn">
           {album.photos && album.photos.length > 0 && (
@@ -432,7 +429,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader COM ANIMAÇÃO ADAPTATIVA RÍTMICA E CARDS NO TAMANHO EXATO DO PERFIL (w-32 h-32)
+// Componente AlbumLoader - COM ANIMAÇÃO MAPADA EM 8 DIREÇÕES NO TAMANHO EXATO DO PERFIL (w-32 h-32)
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -449,7 +446,6 @@ function AlbumLoader({ shortId }) {
     return found?.photos || [];
   });
 
-  // Função nativa de vibração (200ms)
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
@@ -515,7 +511,6 @@ function AlbumLoader({ shortId }) {
     loadAlbum();
   }, [shortId]);
 
-  // ENGINE DO PROGRESSO VISUAL: Corre linear de 0 a 100 em exatos 5 segundos
   useEffect(() => {
     if (status !== 'preloading') return;
 
@@ -540,23 +535,20 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // SPAWN RÍTMICO DAS FOTOS: Distribui as 40+ fotos perfeitamente ao longo dos 5 segundos
   useEffect(() => {
     if (status !== 'preloading' || allPhotosList.length === 0) return;
 
     let idx = 0;
-    // Calcula o intervalo adaptativo perfeito baseado na quantidade de fotos reais do álbum
     const computedInterval = Math.max(80, Math.floor(5000 / allPhotosList.length));
 
     const spawnInterval = setInterval(() => {
       const targetPhoto = allPhotosList[idx % allPhotosList.length];
       if (targetPhoto) {
         const cardId = `card-${Date.now()}-${idx}`;
-        const cardType = (idx % 4) + 1;
+        const cardType = (idx % 8) + 1; // Mapeia dinamicamente entre as 8 direções configuradas
         
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
         
-        // Sincronia de impacto absoluto: remove o nó, pulsa e vibra aos 2.5s do fim do voo CSS
         setTimeout(() => {
           setShakeTrigger(p => p + 1);
           vibrar();
@@ -583,27 +575,16 @@ function AlbumLoader({ shortId }) {
     return (
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
+        {/* CSS INJETADO COM MAPA DE COMPORTAMENTO BALÍSTICO EM 8 ÂNGULOS DO ECRÃ */}
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 
-            0% { transform: translate(-340px, -260px) scale(0.4) rotate(-30deg); opacity: 0; } 
-            15% { opacity: 1; } 
-            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
-          }
-          @keyframes flyCenter2 { 
-            0% { transform: translate(340px, -260px) scale(0.4) rotate(30deg); opacity: 0; } 
-            15% { opacity: 1; } 
-            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
-          }
-          @keyframes flyCenter3 { 
-            0% { transform: translate(-340px, 240px) scale(0.4) rotate(-15deg); opacity: 0; } 
-            15% { opacity: 1; } 
-            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
-          }
-          @keyframes flyCenter4 { 
-            0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 
-            15% { opacity: 1; } 
-            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
-          }
+          @keyframes flyCenter1 { 0% { transform: translate(-340px, -260px) scale(0.4) rotate(-30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter2 { 0% { transform: translate(340px, -260px) scale(0.4) rotate(30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-340px, 260px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter4 { 0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter5 { 0% { transform: translate(0px, -360px) scale(0.4) rotate(10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter6 { 0% { transform: translate(0px, 360px) scale(0.4) rotate(-10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter7 { 0% { transform: translate(-420px, 0px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter8 { 0% { transform: translate(420px, 0px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
           @keyframes hardwareVibration {
             0% { transform: scale(1); }
@@ -617,6 +598,10 @@ function AlbumLoader({ shortId }) {
           .flying-card-2 { animation: flyCenter2 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
           .flying-card-3 { animation: flyCenter3 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
           .flying-card-4 { animation: flyCenter4 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-5 { animation: flyCenter5 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-6 { animation: flyCenter6 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-7 { animation: flyCenter7 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-8 { animation: flyCenter8 2.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
           .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
         `}} />
 
@@ -624,9 +609,12 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* CARDS NO TAMANHO EXATO DO PERFIL (w-32 h-32) COM z-10 - ENTRAM POR BAIXO E INDEPENDENTES */}
+            {/* CARDS NO TAMANHO EXATO DA IMAGEM DE PERFIL (w-32 h-32) - VINDO DE 8 DIREÇÕES */}
             {flyingCards.map((card) => {
-              const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
+              const classes = [
+                'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
+                'flying-card-5', 'flying-card-6', 'flying-card-7', 'flying-card-8'
+              ];
               return (
                 <div 
                   key={card.id} 
@@ -637,7 +625,7 @@ function AlbumLoader({ shortId }) {
               );
             })}
 
-            {/* PERFIL COM z-30 E ENGINE DE PULSAÇÃO REATIVA PROTEGIDA DA TREMIDA INICIAL */}
+            {/* PERFIL COM z-30 COMPATÍVEL COM ENGINE DE PULSAÇÃO PROTEGIDA */}
             <div 
               className={`w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative ${shakeTrigger > 0 ? 'profile-hardware-vibrate' : ''}`}
             >
