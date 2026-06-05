@@ -141,14 +141,13 @@ function ClientApp({ album }) {
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
   const [pinError, setPinError] = useState(false);
   
-  // Inicia nos stories
   const [activeTab, setActiveTab] = useState('stories'); 
   const [currentStoryIdx, setCurrentStoryIdx] = useState(0);
   const [isStoryPlaying, setIsStoryPlaying] = useState(true);
   
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
-  // Efeito de fundo na tela de Login
+  // Efeito de fundo na tela de Login focado estritamente nas fotos de Destaque
   const [bgImageIdx, setBgImageIdx] = useState(0);
   const featuredList = album.featuredPhotos?.length > 0 
     ? album.featuredPhotos.map(idx => album.photos[idx]).filter(Boolean)
@@ -201,7 +200,7 @@ function ClientApp({ album }) {
     }
   };
 
-  // 1. TELA DE LOGIN COM PIN
+  // TELA DE LOGIN COM PIN (FOTOS DE DESTAQUE PASSANDO DE FUNDO)
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -244,6 +243,7 @@ function ClientApp({ album }) {
               className="w-full bg-white/10 border border-white/10 rounded-xl p-3 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-[#d4af37] focus:border-transparent transition-all placeholder:text-gray-500 text-white"
             />
             {pinError && <p className="text-red-500 text-xs font-medium">PIN inválido. Tente novamente.</p>}
+            <input type="submit" style={{display: 'none'}} />
             <button type="submit" className="w-full bg-[#d4af37] hover:bg-[#c4a137] text-black font-bold p-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] duration-200">
               Desbloquear Galeria <ArrowRight size={18} />
             </button>
@@ -253,11 +253,11 @@ function ClientApp({ album }) {
     );
   }
 
-  // 2. INTERFACE DO ÁLBUM E GALERIA
+  // INTERFACE INTERNA DO ÁLBUM (PERFIL E NOME ALINHADOS À ESQUERDA)
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria */}
+      {/* Cabeçalho da Galeria - Alinhado 100% à esquerda (Estilo Apple) */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -265,8 +265,8 @@ function ClientApp({ album }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent" />
         
-        <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-col sm:flex-row items-end sm:items-center gap-6">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900">
+        <div className="absolute bottom-0 left-0 w-full p-4 sm:p-10 flex flex-row items-center gap-4 sm:gap-6 text-left">
+          <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900">
             <img 
               src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa do Álbum" 
@@ -274,10 +274,10 @@ function ClientApp({ album }) {
             />
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2 tracking-tight">
               {album.clientName}
             </h1>
-            <p className="text-[#d4af37] text-sm sm:text-base uppercase tracking-widest font-medium">
+            <p className="text-[#d4af37] text-xs sm:text-base uppercase tracking-widest font-medium">
               {album.subtitle || 'Álbum Fotográfico'}
             </p>
           </div>
@@ -306,7 +306,7 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* GALERIA (Sempre renderizada ao fundo para transição suave) */}
+      {/* ABA GALERIA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
@@ -417,7 +417,7 @@ function ClientApp({ album }) {
         </div>
       )}
 
-      {/* 3. MODAL DE LIGHTBOX (VISUALIZADOR INDIVIDUAL DE FOTOS) */}
+      {/* MODAL DE LIGHTBOX (VISUALIZADOR INDIVIDUAL DE FOTOS) */}
       {lightboxPhoto && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
           <button 
@@ -439,13 +439,14 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader (Com Animação e Pré-Carregamento Real das Imagens)
+// Componente AlbumLoader (Com Animação Sequencial de Todas as Fotos + Vibração Haptica)
 function AlbumLoader({ shortId }) {
   const [status, setStatus] = useState('fetching'); // fetching, preloading, ready, error
   const [progress, setProgress] = useState(0);
   const [album, setAlbum] = useState(null);
+  const [loadingPhotos, setLoadingPhotos] = useState([]); // Guarda as últimas fotos carregadas para o efeito mecânico um a um
 
-  // Função para carregar as fotos na memória
+  // Função para carregar as fotos na memória de forma sequencial controlada
   const preloadImages = (photos, profileImage) => {
     const allUrls = [...(photos || [])];
     if (profileImage && !allUrls.includes(profileImage)) allUrls.push(profileImage);
@@ -465,12 +466,24 @@ function AlbumLoader({ shortId }) {
       const handleLoad = () => {
         loaded++;
         setProgress(Math.round((loaded / total) * 100));
+        
+        // Empurra a foto recém-carregada para o topo da pilha de animação (efeito uma a uma)
+        setLoadingPhotos(prev => {
+          const next = [url, ...prev];
+          return next.slice(0, 4);
+        });
+
+        // Efeito Apple Haptic: Pequena vibradinha física a cada foto inserida com sucesso no álbum
+        if (navigator.vibrate) {
+          navigator.vibrate(15); 
+        }
+
         if (loaded === total) {
           setTimeout(() => setStatus('ready'), 800);
         }
       };
       img.onload = handleLoad;
-      img.onerror = handleLoad; // Continua mesmo se uma foto der erro
+      img.onerror = handleLoad; 
     });
   };
 
@@ -510,12 +523,12 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  // TELA UNIFICADA: "CRIANDO SEU ÁLBUM" + ANIMAÇÃO + PRELOAD
+  // TELA UNIFICADA: "CRIANDO SEU ÁLBUM" + ANIMAÇÃO DINÂMICA DE TODAS AS FOTOS DO ÁLBUM ENTRANDO NO PERFIL
   if (status === 'fetching' || status === 'preloading') {
     return (
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
-        {/* Keyframes de animação injetados */}
+        {/* Estilos das animações balísticas injetadas na UI */}
         <style dangerouslySetInnerHTML={{__html: `
           @keyframes flyCenter1 { 0% { transform: translate(-300px, -200px) scale(0.2) rotate(-30deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
           @keyframes flyCenter2 { 0% { transform: translate(320px, -150px) scale(0.2) rotate(40deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
@@ -528,17 +541,17 @@ function AlbumLoader({ shortId }) {
           .flying-card-4 { animation: flyCenter4 2.1s infinite ease-in-out; animation-delay: 0.5s; }
         `}} />
 
-        {/* Fotos flutuantes ao redor (exibe as primeiras 4 do álbum, se existirem) */}
-        {album?.photos && album.photos.slice(0, 4).map((img, i) => {
+        {/* Fotos reais carregadas sequencialmente flutuando para dentro do Perfil */}
+        {loadingPhotos.map((imgUrl, i) => {
           const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
           return (
-            <div key={i} className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} style={{ top: 'calc(50% - 40px)', left: 'calc(50% - 40px)' }}>
-              <img src={img} alt="Amostra" className="w-full h-full object-cover blur-[0.5px]" />
+            <div key={imgUrl + i} className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} style={{ top: 'calc(50% - 40px)', left: 'calc(50% - 40px)' }}>
+              <img src={imgUrl} alt="Efeito" className="w-full h-full object-cover blur-[0.5px]" />
             </div>
           );
         })}
 
-        {/* Perfil Central e Barra de Progresso */}
+        {/* Perfil Central e Barra de Estado */}
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.2)] mb-6 bg-neutral-900 transition-transform duration-500 hover:scale-105">
             {album?.profileImage || album?.photos?.[0] ? (
@@ -571,7 +584,6 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  // PRONTO: Exibe o App principal do Cliente
   return <ClientApp album={album} />;
 }
 
