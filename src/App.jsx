@@ -541,16 +541,23 @@ function AlbumLoader({ shortId }) {
     if (status !== 'preloading' || allPhotosList.length === 0) return;
 
     let idx = 0;
-    // Aumentando o intervalo entre cards para dar mais espaçamento (400ms ao invés de 80ms)
-    const computedInterval = Math.max(400, Math.floor(5000 / allPhotosList.length));
+    const totalPhotos = allPhotosList.length;
+    // Ajustando o intervalo para garantir que todos os cards sejam enviados
+    // Cada card leva 2.2 segundos para completar a animação, então espaçamos adequadamente
+    const computedInterval = Math.max(400, Math.floor(3000 / totalPhotos));
+    
+    // Armazena quantos cards já foram criados
+    let cardsCreated = 0;
 
     const spawnInterval = setInterval(() => {
-      const targetPhoto = allPhotosList[idx % allPhotosList.length];
+      // Pega a foto atual baseada no índice, mas usando a lista completa
+      const targetPhoto = allPhotosList[idx % totalPhotos];
       if (targetPhoto) {
         const cardId = `card-${Date.now()}-${idx}`;
         const cardType = (idx % 8) + 1;
         
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
+        cardsCreated++;
         
         // Exatamente no momento do impacto visual (2200ms): Vibra e adiciona a classe de pulsação
         setTimeout(() => {
@@ -559,10 +566,9 @@ function AlbumLoader({ shortId }) {
           const profileEl = document.getElementById('profile-pulse');
           if (profileEl) {
             profileEl.classList.remove('profile-hardware-vibrate');
-            void profileEl.offsetWidth; // Força o reflow do navegador
+            void profileEl.offsetWidth;
             profileEl.classList.add('profile-hardware-vibrate');
             
-            // Remove a classe após a animação terminar para não acumular
             setTimeout(() => {
               if (profileEl) {
                 profileEl.classList.remove('profile-hardware-vibrate');
@@ -574,6 +580,11 @@ function AlbumLoader({ shortId }) {
         }, 2200); 
       }
       idx++;
+      
+      // Se já criamos todos os cards necessários (um para cada foto), para o intervalo
+      if (cardsCreated >= totalPhotos) {
+        clearInterval(spawnInterval);
+      }
     }, computedInterval); 
 
     return () => clearInterval(spawnInterval);
@@ -626,7 +637,7 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
             
-            {/* CARDS COM O TAMANHO DO PERFIL (w-32 h-32) - VINDO DE 8 DIREÇÕES */}
+            {/* CARDS COM O TAMANHO DO PERFIL - UM CARD PARA CADA FOTO DO ÁLBUM */}
             {flyingCards.map((card) => {
               const classes = [
                 'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
