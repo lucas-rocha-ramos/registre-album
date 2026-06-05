@@ -432,8 +432,9 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - COM SISTEMA ANTI-ACELERAMENTO E FIX INTELECTUAL DE SLOTS DE ANIMAÇÃO ESTÁVEIS
+// Componente AlbumLoader - INSTANCIAÇÃO DINÂMICA ANTIBUG DE SLOTS FIXOS
 function AlbumLoader({ shortId }) {
+  // Inicialização síncrona inteligente do álbum direto do cache local para mostrar o Perfil de imediato
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
     return localAlbums.find(a => a.shortId === shortId) || null;
@@ -441,13 +442,9 @@ function AlbumLoader({ shortId }) {
   const [status, setStatus] = useState('fetching'); 
   const [actualProgress, setActualProgress] = useState(0);
   const [visualProgress, setVisualProgress] = useState(0);
-  const [loadingPhotos, setLoadingPhotos] = useState(() => {
-    const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
-    const found = localAlbums.find(a => a.shortId === shortId);
-    const initial = found?.photos?.slice(0, 4) || [];
-    while (initial.length < 4) initial.push('');
-    return initial;
-  }); 
+  
+  // Fila de gerenciamento dinâmico de instâncias independentes de cards
+  const [flyingCards, setFlyingCards] = useState([]); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
   const [allPhotosList, setAllPhotosList] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -500,11 +497,6 @@ function AlbumLoader({ shortId }) {
           setAlbum(albumData);
           setAllPhotosList(albumData.photos || []);
           setStatus('preloading');
-          setLoadingPhotos(prev => {
-            const initial = albumData.photos?.slice(0, 4) || [];
-            while (initial.length < 4) initial.push('');
-            return initial;
-          });
           preloadImages(albumData.photos, albumData.profileImage);
         } else {
           const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -513,7 +505,6 @@ function AlbumLoader({ shortId }) {
             setAlbum(localAlbum);
             setAllPhotosList(localAlbum.photos || []);
             setStatus('preloading');
-            setLoadingPhotos(localAlbum.photos?.slice(0, 4) || []);
             preloadImages(localAlbum.photos, localAlbum.profileImage);
           } else {
             setStatus('error');
@@ -550,23 +541,40 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // Alocação em slots fixos por índice para congelar a imagem no card durante todo o ciclo do voo
+  // FIX DO BUG: Criação de nós imutáveis e agendamento de destruição assíncrona pós-vôo
   useEffect(() => {
     if (visualProgress > 0 && allPhotosList.length > 0) {
       const photoIndex = Math.floor((visualProgress / 100) * allPhotosList.length);
-      const targetPhoto = allPhotosList[photoIndex % allPhotosList.length];
+      
+      setFlyingCards((prev) => {
+        let next = [...prev];
+        let updated = false;
 
-      if (targetPhoto) {
-        const currentSlot = photoIndex % 4; // Determina qual canal/card vai receber a imagem
-        setLoadingPhotos((prev) => {
-          if (prev[currentSlot] === targetPhoto) return prev;
-          const next = [...prev];
-          next[currentSlot] = targetPhoto; // Substitui estritamente a vaga correspondente sem dar Unshift
-          return next;
-        });
-        setShakeTrigger(prev => prev + 1);
-        vibrar();
-      }
+        // Avalia de forma atômica para garantir que cada imagem tenha o seu próprio card exclusivo sem pular
+        for (let i = 0; i <= photoIndex; i++) {
+          const targetPhoto = allPhotosList[i % allPhotosList.length];
+          if (!targetPhoto) continue;
+          
+          const cardId = `card-instance-${i}`;
+          
+          // Se este card específico de índice estável ainda não foi gerado, cria o nó imutável
+          if (!next.some(c => c.id === cardId)) {
+            vibrar();
+            setShakeTrigger(p => p + 1);
+
+            // Destrói estritamente a instância apenas após a animação de 2.2s concluir 100% do trajeto
+            setTimeout(() => {
+              setFlyingCards(current => current.filter(c => c.id !== cardId));
+            }, 2200);
+
+            const cardType = (i % 4) + 1;
+            next.push({ id: cardId, url: targetPhoto, type: cardType });
+            updated = true;
+          }
+        }
+
+        return updated ? next : prev;
+      });
     }
   }, [visualProgress, allPhotosList]);
 
@@ -606,19 +614,20 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {loadingPhotos.map((imgUrl, i) => {
+            {/* Renderização individual isolada baseada nas chaves estáveis de instâncias únicas */}
+            {flyingCards.map((card, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
-              if (!imgUrl) return null;
               return (
                 <div 
-                  key={`${i}-${imgUrl}`} // Unifica índice e URL numa chave imutável para reiniciar o ciclo do voo de forma limpa apenas ao trocar a imagem
-                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-20 ${classes[i]}`} 
+                  key={card.id} 
+                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-20 ${classes[card.type - 1]}`} 
                 >
-                  <img src={imgUrl} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
+                  <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
                 </div>
               );
             })}
 
+            {/* Renderização imediata e estável da Foto de Perfil recuperada do cache */}
             <div 
               key={shakeTrigger}
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-10 relative profile-hardware-vibrate"
