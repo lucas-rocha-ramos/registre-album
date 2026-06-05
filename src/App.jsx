@@ -1,13 +1,3 @@
-Aqui está o código completo, unificado e totalmente ajustado com as otimizações premium de desempenho e interface que solicitou.
-
-### O que mudou:
-
-1. **Carregamento Instantâneo do Perfil e Animação:** Reordenamos o fluxo de pré-carregamento para colocar a foto de perfil e as primeiras imagens no início absoluto da fila. Agora elas carregam imediatamente, eliminando qualquer atraso visual.
-2. **Centralização Perfeita:** Colocamos as fotos flutuantes dentro do mesmo container relativo da foto de perfil. Agora elas convergem exatamente para o centro do círculo de perfil, sem ficarem desalinhadas ou abaixo dele.
-3. **Sensação Real de Vibração (Haptic Feedback):** Criamos um gatilho de estado dinâmico (`shakeTrigger`) sincronizado com o carregamento de cada foto. Toda vez que uma imagem entra no álbum, o container do perfil sofre uma microvibração visual via CSS (além do comando físico `navigator.vibrate`), proporcionando um efeito tátil realista mesmo em computadores.
-4. **Perfil e Nome Alinhados à Esquerda:** O cabeçalho na aba galeria foi blindado para garantir o alinhamento estrito à esquerda em qualquer tamanho de ecrã.
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -210,7 +200,7 @@ function ClientApp({ album }) {
     }
   };
 
-  // TELA DE LOGIN COM PIN (FOTOS DE DESTAQUE EXCLUSIVAS PASSANDO NO FUNDO)
+  // TELA DE LOGIN COM PIN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -262,11 +252,11 @@ function ClientApp({ album }) {
     );
   }
 
-  // INTERFACE INTERNA (CABEÇALHO ALINHADO NO LADO ESQUERDO)
+  // INTERFACE INTERNA DO CLIENTE
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria - 100% Alinhado à Esquerda */}
+      {/* Cabeçalho da Galeria - Alinhado no Lado Esquerdo */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -456,7 +446,7 @@ function AlbumLoader({ shortId }) {
   const [loadingPhotos, setLoadingPhotos] = useState([]); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
 
-  // Função para carregar as fotos priorizando o perfil para renderização instantânea
+  // Função para carregar as fotos na memória
   const preloadImages = (photos, profileImage) => {
     const priorityUrls = [];
     if (profileImage) priorityUrls.push(profileImage);
@@ -481,17 +471,14 @@ function AlbumLoader({ shortId }) {
         loaded++;
         setProgress(Math.round((loaded / total) * 100));
         
-        // Empurra a foto carregada para o topo do fluxo da animação um a um
         setLoadingPhotos(prev => {
           if (prev.includes(url)) return prev;
           const next = [url, ...prev];
           return next.slice(0, 4);
         });
 
-        // Força a remount visual para a animação tátil de vibração
         setShakeTrigger(prev => prev + 1);
 
-        // Desbloqueia a vibração física hática nos telemóveis compatíveis
         if (navigator.vibrate) {
           navigator.vibrate(20); 
         }
@@ -542,7 +529,6 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  // TELA UNIFICADA: ANIMAÇÃO SEQUENCIAL PERFEITAMENTE CENTRALIZADA COM O PERFIL
   if (status === 'fetching' || status === 'preloading') {
     return (
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
@@ -566,11 +552,8 @@ function AlbumLoader({ shortId }) {
         `}} />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
-          
-          {/* CONTAINER DA ANIMAÇÃO CENTRALIZADA COM O PERFIL */}
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* Fotos Reais entrando no container de forma concêntrica */}
             {loadingPhotos.map((imgUrl, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
@@ -584,7 +567,6 @@ function AlbumLoader({ shortId }) {
               );
             })}
 
-            {/* Círculo do Perfil com Vibração de Impacto Vinculada */}
             <div 
               key={shakeTrigger}
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-10 relative profile-hardware-vibrate"
@@ -816,7 +798,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       setExtractionError(true);
       setExtractionMessage('Erro ao conectar com a API. Tente novamente.');
       if (!updateOnly) setExtractedPhotos([]);
-    } fillly {
+    } finally { // <--- CORRIGIDO DE 'fillly' PARA 'finally' AQUI
       setTimeout(() => {
         setIsExtracting(false);
         clearInterval(progressInterval);
@@ -1017,5 +999,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
