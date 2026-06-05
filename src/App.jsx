@@ -432,7 +432,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - ANIMAÇÃO COM PULSAÇÃO REFATORADA (SEM BUG DE REMOUNT) E VIBRAÇÃO SINCRONIZADA
+// Componente AlbumLoader - ANIMAÇÃO COM PULSAÇÃO REFATORADA (COM VIBRAÇÃO SINCRONIZADA)
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -452,8 +452,6 @@ function AlbumLoader({ shortId }) {
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
-    } else {
-        console.log('Seu dispositivo não suporta vibração');
     }
   }
 
@@ -553,14 +551,14 @@ function AlbumLoader({ shortId }) {
         
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
         
-        // Exatamente no momento do impacto visual (2400ms): Vibra e reinicia a classe CSS para pulsar!
+        // Exatamente no momento do impacto visual (2400ms): Vibra e adiciona a classe de pulsação
         setTimeout(() => {
           vibrar();
           
           const profileEl = document.getElementById('profile-pulse');
           if (profileEl) {
             profileEl.classList.remove('profile-hardware-vibrate');
-            void profileEl.offsetWidth; // Força o reflow do navegador, ativando a animação novamente sem piscar!
+            void profileEl.offsetWidth; // Força o reflow do navegador, ativando a animação novamente
             profileEl.classList.add('profile-hardware-vibrate');
           }
           
@@ -636,7 +634,7 @@ function AlbumLoader({ shortId }) {
               );
             })}
 
-            {/* PERFIL COM z-30 E ID PARA RECEBER A PULSAÇÃO SEM PISCAR */}
+            {/* PERFIL COM z-30 E ID PARA RECEBER A PULSAÇÃO */}
             <div 
               id="profile-pulse"
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative"
