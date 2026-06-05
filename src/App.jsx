@@ -134,7 +134,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente com Melhorias Premium
+// Componente da Visão do Cliente
 function ClientApp({ album }) {
   const [pinInput, setPinInput] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
@@ -255,7 +255,6 @@ function ClientApp({ album }) {
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria - 100% Alinhado à Esquerda */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -282,7 +281,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* SELETOR DE ABAS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="flex justify-center border-b border-white/10 gap-8">
           <button 
@@ -304,7 +302,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* ABA GALERIA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
@@ -344,7 +341,6 @@ function ClientApp({ album }) {
         )}
       </div>
 
-      {/* OVERLAY: ANIMAÇÃO STORIES (TELA CHEIA) */}
       {activeTab === 'stories' && (
         <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center sm:p-6 animate-fadeIn">
           {album.photos && album.photos.length > 0 && (
@@ -432,7 +428,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - INSTANCIAÇÃO DINÂMICA ANTIBUG COM PROGRESÃO FLUIDA CADENCIADA E PERFIL NA FRENTE (z-30)
+// Componente AlbumLoader COM ANIMAÇÃO DESACOLPADA E TOTALMENTE FLUIDA E VIBRAÇÃO NATIVA
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -449,6 +445,7 @@ function AlbumLoader({ shortId }) {
     return found?.photos || [];
   });
 
+  // Função exata fornecida para vibração nativa (200ms)
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
@@ -514,6 +511,7 @@ function AlbumLoader({ shortId }) {
     loadAlbum();
   }, [shortId]);
 
+  // ENGINE DO PROGRESSO VISUAL: Garante que a barra ande fluidamente até ao fim sem saltos abruptos.
   useEffect(() => {
     if (status !== 'preloading') return;
 
@@ -522,7 +520,7 @@ function AlbumLoader({ shortId }) {
         if (actualProgress === 100) {
           if (prev >= 100) {
             clearInterval(interval);
-            setTimeout(() => setStatus('ready'), 200);
+            setTimeout(() => setStatus('ready'), 400); // Dá um tempo extra no 100%
             return 100;
           }
           return prev + 1;
@@ -533,44 +531,37 @@ function AlbumLoader({ shortId }) {
           return prev;
         }
       });
-    }, 50);
+    }, 50); // Preenche do 0 ao 100 em exatos 5 segundos.
 
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
+  // SPAWN CONSTANTE DAS FOTOS: A animação lança calmamente um card de cada vez!
   useEffect(() => {
-    if (visualProgress > 0 && allPhotosList.length > 0) {
-      const photoIndex = Math.floor((visualProgress / 100) * allPhotosList.length);
-      
-      setFlyingCards((prev) => {
-        let next = [...prev];
-        let updated = false;
+    if (status !== 'preloading' || allPhotosList.length === 0) return;
 
-        for (let i = 0; i <= photoIndex; i++) {
-          const targetPhoto = allPhotosList[i % allPhotosList.length];
-          if (!targetPhoto) continue;
-          
-          const cardId = `card-instance-${i}`;
-          
-          if (!next.some(c => c.id === cardId)) {
-            vibrar();
-            setShakeTrigger(p => p + 1);
+    let idx = 0;
+    const spawnInterval = setInterval(() => {
+      const targetPhoto = allPhotosList[idx % allPhotosList.length];
+      if (targetPhoto) {
+        const cardId = `card-${Date.now()}-${idx}`;
+        const cardType = (idx % 4) + 1;
+        
+        // Adiciona um novo card independente
+        setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
+        
+        // Exatamente aos 2.4s (quando ele bate no centro e fica com scale zero), removemos do DOM, pulsamos o perfil e vibramos.
+        setTimeout(() => {
+          setShakeTrigger(p => p + 1);
+          vibrar();
+          setFlyingCards(current => current.filter(c => c.id !== cardId));
+        }, 2400); 
+      }
+      idx++;
+    }, 400); // A cada 400ms nasce um novo card de fora do ecrã
 
-            // Tempo aumentado para 3.5s para bater exatamente com a nova velocidade reduzida e fluida
-            setTimeout(() => {
-              setFlyingCards(current => current.filter(c => c.id !== cardId));
-            }, 3500);
-
-            const cardType = (i % 4) + 1;
-            next.push({ id: cardId, url: targetPhoto, type: cardType });
-            updated = true;
-          }
-        }
-
-        return updated ? next : prev;
-      });
-    }
-  }, [visualProgress, allPhotosList]);
+    return () => clearInterval(spawnInterval);
+  }, [status, allPhotosList]);
 
   if (status === 'error') {
     return (
@@ -587,11 +578,30 @@ function AlbumLoader({ shortId }) {
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-280px, -220px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter2 { 0% { transform: translate(280px, -220px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-280px, 220px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter4 { 0% { transform: translate(280px, 220px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+          @keyframes flyCenter1 { 
+            0% { transform: translate(-200px, -300px) scale(0.3) rotate(-20deg); opacity: 0; } 
+            20% { opacity: 1; } 
+            80% { transform: translate(-30px, -45px) scale(0.7) rotate(-5deg); opacity: 1; } 
+            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
+          }
+          @keyframes flyCenter2 { 
+            0% { transform: translate(200px, -300px) scale(0.3) rotate(20deg); opacity: 0; } 
+            20% { opacity: 1; } 
+            80% { transform: translate(30px, -45px) scale(0.7) rotate(5deg); opacity: 1; } 
+            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
+          }
+          @keyframes flyCenter3 { 
+            0% { transform: translate(-200px, 300px) scale(0.3) rotate(-20deg); opacity: 0; } 
+            20% { opacity: 1; } 
+            80% { transform: translate(-30px, 45px) scale(0.7) rotate(-5deg); opacity: 1; } 
+            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
+          }
+          @keyframes flyCenter4 { 
+            0% { transform: translate(200px, 300px) scale(0.3) rotate(20deg); opacity: 0; } 
+            20% { opacity: 1; } 
+            80% { transform: translate(30px, 45px) scale(0.7) rotate(5deg); opacity: 1; } 
+            100% { transform: translate(0, 0) scale(0); opacity: 0; } 
+          }
           @keyframes hardwareVibration {
             0% { transform: scale(1); }
             20% { transform: scale(1.08) translate(-1.5px, 1px); box-shadow: 0 0 40px rgba(212,175,55,0.6); }
@@ -600,10 +610,10 @@ function AlbumLoader({ shortId }) {
             80% { transform: scale(1.01) translate(1px, 1px); }
             100% { transform: scale(1); }
           }
-          .flying-card-1 { animation: flyCenter1 3.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
-          .flying-card-2 { animation: flyCenter2 3.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.3s; }
-          .flying-card-3 { animation: flyCenter3 3.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.1s; }
-          .flying-card-4 { animation: flyCenter4 3.1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: 0.5s; }
+          .flying-card-1 { animation: flyCenter1 2.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+          .flying-card-2 { animation: flyCenter2 2.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+          .flying-card-3 { animation: flyCenter3 2.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+          .flying-card-4 { animation: flyCenter4 2.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
           .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
         `}} />
 
@@ -611,20 +621,20 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* CARDS COM z-10: Passam perfeitamente por baixo do perfil */}
-            {flyingCards.map((card, i) => {
+            {/* CARDS COM z-10 E TAMANHO AJUSTADO (w-20/24): Para sumirem invisíveis atrás do perfil de w-32 */}
+            {flyingCards.map((card) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
                 <div 
                   key={card.id} 
-                  className={`absolute inset-0 m-auto w-32 h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
+                  className={`absolute inset-0 m-auto w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
                 >
                   <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
                 </div>
               );
             })}
 
-            {/* PERFIL COM z-30 E PULSAÇÃO MECÂNICA REATIVA */}
+            {/* PERFIL COM z-30: Mantém-se absoluto na frente cobrindo os cards que terminam em scale(0) no translate(0,0) */}
             <div 
               key={shakeTrigger}
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative profile-hardware-vibrate"
