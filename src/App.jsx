@@ -432,23 +432,27 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - COM CARREGAMENTO SÍNCRONO DO LOCALSTORAGE E CORREÇÃO DE BUG DA ANIMAÇÃO
+// Componente AlbumLoader - COM SISTEMA ANTI-ACELERAMENTO E SUPORTE DE TICKER CONTROLADO DE 5 SEGUNDOS
 function AlbumLoader({ shortId }) {
-  // Inicialização síncrona do álbum para renderizar o perfil IMEDIATAMENTE no estado 'fetching'
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
     return localAlbums.find(a => a.shortId === shortId) || null;
   });
   const [status, setStatus] = useState('fetching'); 
-  const [progress, setProgress] = useState(0);
+  const [actualProgress, setActualProgress] = useState(0);
+  const [visualProgress, setVisualProgress] = useState(0);
   const [loadingPhotos, setLoadingPhotos] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
     const found = localAlbums.find(a => a.shortId === shortId);
     return found?.photos?.slice(0, 4) || [];
   }); 
   const [shakeTrigger, setShakeTrigger] = useState(0); 
+  const [allPhotosList, setAllPhotosList] = useState(() => {
+    const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
+    const found = localAlbums.find(a => a.shortId === shortId);
+    return found?.photos || [];
+  });
 
-  // Função exata de vibração nativa enviada por si
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
@@ -465,8 +469,7 @@ function AlbumLoader({ shortId }) {
     const allUrls = [...priorityUrls, ...remainingPhotos];
 
     if (allUrls.length === 0) {
-      setProgress(100);
-      setTimeout(() => setStatus('ready'), 500);
+      setActualProgress(100);
       return;
     }
 
@@ -479,22 +482,7 @@ function AlbumLoader({ shortId }) {
       
       const handleLoad = () => {
         loaded++;
-        setProgress(Math.round((loaded / total) * 100));
-        
-        setLoadingPhotos(prev => {
-          if (prev.includes(url)) return prev;
-          const next = [url, ...prev];
-          return next.slice(0, 4);
-        });
-
-        setShakeTrigger(prev => prev + 1);
-
-        // Ativação precisa e sem delays da vibração física do telemóvel
-        vibrar();
-
-        if (loaded === total) {
-          setTimeout(() => setStatus('ready'), 600);
-        }
+        setActualProgress(Math.round((loaded / total) * 100));
       };
       
       img.onload = handleLoad;
@@ -508,6 +496,7 @@ function AlbumLoader({ shortId }) {
         const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
+          setAllPhotosList(albumData.photos || []);
           setStatus('preloading');
           setLoadingPhotos(prev => prev.length > 0 ? prev : (albumData.photos?.slice(0, 4) || []));
           preloadImages(albumData.photos, albumData.profileImage);
@@ -516,6 +505,7 @@ function AlbumLoader({ shortId }) {
           const localAlbum = localAlbums.find(a => a.shortId === shortId);
           if (localAlbum) {
             setAlbum(localAlbum);
+            setAllPhotosList(localAlbum.photos || []);
             setStatus('preloading');
             setLoadingPhotos(localAlbum.photos?.slice(0, 4) || []);
             preloadImages(localAlbum.photos, localAlbum.profileImage);
@@ -529,6 +519,49 @@ function AlbumLoader({ shortId }) {
     };
     loadAlbum();
   }, [shortId]);
+
+  // ENGINE DO PROGRESSO VISUAL: Roda fluido de 1% em 1% a cada 50ms (Garante 5s exatos se já estiver em cache)
+  useEffect(() => {
+    if (status !== 'preloading') return;
+
+    const interval = setInterval(() => {
+      setVisualProgress((prev) => {
+        if (actualProgress === 100) {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setTimeout(() => setStatus('ready'), 200);
+            return 100;
+          }
+          return prev + 1;
+        } else {
+          // Se ainda está baixando via rede lenta, progride suavemente sem ultrapassar o progresso real da rede
+          if (prev < actualProgress) {
+            return prev + 1;
+          }
+          return prev;
+        }
+      });
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [status, actualProgress]);
+
+  // Ciclo rítmico das fotos acoplado estritamente ao progresso visual (Impede acelerações caóticas do cache)
+  useEffect(() => {
+    if (visualProgress > 0 && allPhotosList.length > 0) {
+      const photoIndex = Math.floor((visualProgress / 100) * allPhotosList.length);
+      const targetPhoto = allPhotosList[photoIndex % allPhotosList.length];
+
+      if (targetPhoto) {
+        setLoadingPhotos((prev) => {
+          if (prev.includes(targetPhoto)) return prev;
+          return [targetPhoto, ...prev].slice(0, 4);
+        });
+        setShakeTrigger(prev => prev + 1);
+        vibrar();
+      }
+    }
+  }, [visualProgress, allPhotosList]);
 
   if (status === 'error') {
     return (
@@ -566,7 +599,6 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
             
-            {/* CORREÇÃO DO BUG: Uso da key estável {i} impede que o React mate a animação durante o cache rápido */}
             {loadingPhotos.map((imgUrl, i) => {
               const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
               return (
@@ -579,7 +611,6 @@ function AlbumLoader({ shortId }) {
               );
             })}
 
-            {/* CORREÇÃO DO BUG: Renderiza instantaneamente com os dados recuperados do localStorage */}
             <div 
               key={shakeTrigger}
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-10 relative profile-hardware-vibrate"
@@ -602,14 +633,14 @@ function AlbumLoader({ shortId }) {
           </p>
           
           <span className="text-xs text-[#d4af37] tracking-widest uppercase font-bold mb-3 block animate-pulse">
-            Criando seu Álbum {status === 'preloading' ? `${progress}%` : ''}
+            Criando seu Álbum {status === 'preloading' ? `${visualProgress}%` : ''}
           </span>
           
           <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden border border-white/5 shadow-inner relative">
             {status === 'fetching' ? (
                <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
             ) : (
-               <div className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-300 ease-out rounded-full shadow-[0_0_10px_#d4af37]" style={{ width: `${progress}%` }} />
+               <div className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-300 ease-out rounded-full shadow-[0_0_10px_#d4af37]" style={{ width: `${visualProgress}%` }} />
             )}
           </div>
         </div>
