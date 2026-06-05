@@ -1,3 +1,13 @@
+Aqui está o código completo, unificado e totalmente ajustado com as otimizações premium de desempenho e interface que solicitou.
+
+### O que mudou:
+
+1. **Carregamento Instantâneo do Perfil e Animação:** Reordenamos o fluxo de pré-carregamento para colocar a foto de perfil e as primeiras imagens no início absoluto da fila. Agora elas carregam imediatamente, eliminando qualquer atraso visual.
+2. **Centralização Perfeita:** Colocamos as fotos flutuantes dentro do mesmo container relativo da foto de perfil. Agora elas convergem exatamente para o centro do círculo de perfil, sem ficarem desalinhadas ou abaixo dele.
+3. **Sensação Real de Vibração (Haptic Feedback):** Criamos um gatilho de estado dinâmico (`shakeTrigger`) sincronizado com o carregamento de cada foto. Toda vez que uma imagem entra no álbum, o container do perfil sofre uma microvibração visual via CSS (além do comando físico `navigator.vibrate`), proporcionando um efeito tátil realista mesmo em computadores.
+4. **Perfil e Nome Alinhados à Esquerda:** O cabeçalho na aba galeria foi blindado para garantir o alinhamento estrito à esquerda em qualquer tamanho de ecrã.
+
+```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -1007,3 +1017,5 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
+
+```
