@@ -15,7 +15,7 @@ const saveAlbumToSheets = async (album) => {
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // AQUI ESTÁ A CORREÇÃO DO CORS
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         id: album.shortId,
         album: album
@@ -135,21 +135,20 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente com Melhorias Visuais e de Fluxo
+// Componente da Visão do Cliente com Melhorias Premium
 function ClientApp({ album }) {
   const [pinInput, setPinInput] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
   const [pinError, setPinError] = useState(false);
   
-  // Modificado para iniciar diretamente na animação de stories pós-login
+  // Inicia nos stories
   const [activeTab, setActiveTab] = useState('stories'); 
   const [currentStoryIdx, setCurrentStoryIdx] = useState(0);
   const [isStoryPlaying, setIsStoryPlaying] = useState(true);
   
-  // Estado para controle do Lightbox na Galeria
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
-  // Efeito para rotacionar fotos de fundo na tela de Login (Slideshow)
+  // Efeito de fundo na tela de Login
   const [bgImageIdx, setBgImageIdx] = useState(0);
   const featuredList = album.featuredPhotos?.length > 0 
     ? album.featuredPhotos.map(idx => album.photos[idx]).filter(Boolean)
@@ -164,7 +163,7 @@ function ClientApp({ album }) {
     }
   }, [isAuthenticated, featuredList]);
 
-  // Controle de reprodução automática e redirecionamento ao fim dos Stories
+  // Controle de reprodução automática dos Stories
   useEffect(() => {
     let interval;
     if (activeTab === 'stories' && isStoryPlaying && album.photos?.length > 0) {
@@ -173,7 +172,6 @@ function ClientApp({ album }) {
           if (prev < album.photos.length - 1) {
             return prev + 1;
           } else {
-            // Fim dos stories: Encaminha automaticamente para a aba galeria
             setIsStoryPlaying(false);
             setActiveTab('gallery');
             return 0;
@@ -203,11 +201,10 @@ function ClientApp({ album }) {
     }
   };
 
-  // 1. TELA DE LOGIN COM PIN E SLIDESHOW DINÂMICO DE FUNDO
+  // 1. TELA DE LOGIN COM PIN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
-        {/* Slideshow de Fundo */}
         {featuredList.map((photoUrl, index) => (
           <div 
             key={index}
@@ -221,11 +218,10 @@ function ClientApp({ album }) {
         ))}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-[2]" />
         
-        {/* Card Login com Perfil e Estilo Premium Glassmorphism */}
         <div className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/15 rounded-3xl p-8 text-center shadow-2xl relative z-10">
           <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-2xl mx-auto mb-4 flex-shrink-0 bg-neutral-900">
             <img 
-              src={album.profileImage || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
+              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa" 
               className="w-full h-full object-cover" 
             />
@@ -257,10 +253,11 @@ function ClientApp({ album }) {
     );
   }
 
-  // 2. INTERFACE INTERNA DO ÁLBUM
+  // 2. INTERFACE DO ÁLBUM E GALERIA
   return (
-    <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12">
-      {/* Cabeçalho do Álbum */}
+    <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
+      
+      {/* Cabeçalho da Galeria */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -271,7 +268,7 @@ function ClientApp({ album }) {
         <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-col sm:flex-row items-end sm:items-center gap-6">
           <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900">
             <img 
-              src={album.profileImage || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
+              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa do Álbum" 
               className="w-full h-full object-cover" 
             />
@@ -309,144 +306,127 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* RENDERIZAÇÃO CONTEÚDO DAS ABAS */}
+      {/* GALERIA (Sempre renderizada ao fundo para transição suave) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-        {activeTab === 'gallery' ? (
-          /* ABA GALERIA */
-          <>
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
-              <button 
-                onClick={handleDownloadRedirect}
-                className="flex items-center gap-2 text-sm bg-[#d4af37] hover:bg-[#c4a137] text-black font-semibold px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95"
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
+          <button 
+            onClick={handleDownloadRedirect}
+            className="flex items-center gap-2 text-sm bg-[#d4af37] hover:bg-[#c4a137] text-black font-semibold px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95"
+          >
+            <Download size={16} /> Baixar Fotos
+          </button>
+        </div>
+
+        {album.photos && album.photos.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {album.photos.map((photo, idx) => (
+              <div 
+                key={idx} 
+                onClick={() => setLightboxPhoto(photo)}
+                className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden bg-gray-900 border border-white/10"
               >
-                <Download size={16} /> Baixar Fotos
-              </button>
-            </div>
-
-            {album.photos && album.photos.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {album.photos.map((photo, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => setLightboxPhoto(photo)}
-                    className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden bg-gray-900 border border-white/10"
-                  >
-                    <img 
-                      src={photo} 
-                      alt={`Foto ${idx + 1}`} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
-                      <Eye size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    </div>
-                  </div>
-                ))}
+                <img 
+                  src={photo} 
+                  alt={`Foto ${idx + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
+                  <Eye size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-20 text-gray-500">
-                <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Nenhuma foto disponível neste álbum.</p>
-              </div>
-            )}
-          </>
+            ))}
+          </div>
         ) : (
-          /* ABA ANIMAÇÃO STORIES COM SIMULADOR MOBILE */
-          <div className="flex justify-center items-center py-2">
-            {album.photos && album.photos.length > 0 ? (
-              /* Maquete/Simulador de Dispositivo Móvel */
-              <div className="relative w-full max-w-[390px] aspect-[9/19] bg-neutral-950 rounded-[45px] overflow-hidden shadow-2xl border-[10px] border-neutral-800 flex flex-col justify-between ring-4 ring-neutral-900">
-                
-                {/* Linhas de progresso estilo Instagram */}
-                <div className="absolute top-5 inset-x-5 flex gap-1 z-30 px-1">
-                  {album.photos.map((_, idx) => (
-                    <div key={idx} className="h-[3px] flex-1 bg-white/20 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full bg-white transition-all duration-300 ${
-                          idx < currentStoryIdx ? 'w-full' : idx === currentStoryIdx ? (isStoryPlaying ? 'w-full duration-[4000ms] linear' : 'w-[50%]') : 'w-0'
-                        }`}
-                        style={{
-                          transitionProperty: idx === currentStoryIdx && isStoryPlaying ? 'width' : 'none',
-                          transitionTimingFunction: 'linear'
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Controles de Topo */}
-                <div className="absolute top-9 inset-x-5 flex justify-between items-center z-30 px-2">
-                  <span className="text-xs font-semibold text-white bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                    {currentStoryIdx + 1} / {album.photos.length}
-                  </span>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setIsStoryPlaying(!isStoryPlaying)} 
-                      className="text-white bg-black/40 p-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-black/60 transition-colors"
-                    >
-                      {isStoryPlaying ? <Pause size={14} /> : <Play size={14} />}
-                    </button>
-                    <button 
-                      onClick={() => setActiveTab('gallery')} 
-                      className="text-white bg-black/40 p-1.5 rounded-full backdrop-blur-sm border border-white/10 hover:bg-black/60 transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Foto do Story */}
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
-                  <img 
-                    src={album.photos[currentStoryIdx]} 
-                    alt={`Story ${currentStoryIdx + 1}`} 
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                {/* Toques Laterais para Retroceder / Avançar */}
-                <div className="absolute inset-0 z-20 flex">
-                  <div 
-                    className="w-[30%] h-full cursor-w-resize" 
-                    onClick={() => {
-                      if (currentStoryIdx > 0) setCurrentStoryIdx(currentStoryIdx - 1);
-                    }}
-                  />
-                  <div 
-                    className="w-[70%] h-full cursor-e-resize" 
-                    onClick={() => {
-                      if (currentStoryIdx < album.photos.length - 1) {
-                        setCurrentStoryIdx(currentStoryIdx + 1);
-                      } else {
-                        setIsStoryPlaying(false);
-                        setActiveTab('gallery');
-                      }
-                    }}
-                  />
-                </div>
-
-              </div>
-            ) : (
-              <div className="text-center py-20 text-gray-500">
-                <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Nenhuma foto disponível para os Stories.</p>
-              </div>
-            )}
+          <div className="text-center py-20 text-gray-500">
+            <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
+            <p>Nenhuma foto disponível neste álbum.</p>
           </div>
         )}
       </div>
+
+      {/* OVERLAY: ANIMAÇÃO STORIES (TELA CHEIA) */}
+      {activeTab === 'stories' && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center sm:p-6 animate-fadeIn">
+          {album.photos && album.photos.length > 0 && (
+            <div className="relative w-full h-full sm:max-w-[400px] sm:max-h-[90vh] sm:rounded-[40px] bg-black overflow-hidden shadow-2xl sm:border-[8px] border-neutral-900 flex flex-col sm:ring-1 sm:ring-white/10">
+              
+              {/* Linhas de progresso estilo Instagram */}
+              <div className="absolute top-4 sm:top-5 inset-x-3 sm:inset-x-5 flex gap-1 z-30 px-1">
+                {album.photos.map((_, idx) => (
+                  <div key={idx} className="h-[2px] sm:h-[3px] flex-1 bg-white/30 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full bg-white transition-all duration-300 ${
+                        idx < currentStoryIdx ? 'w-full' : idx === currentStoryIdx ? (isStoryPlaying ? 'w-full duration-[4000ms] linear' : 'w-[50%]') : 'w-0'
+                      }`}
+                      style={{
+                        transitionProperty: idx === currentStoryIdx && isStoryPlaying ? 'width' : 'none',
+                        transitionTimingFunction: 'linear'
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Controles de Topo (Estilo Apple/Insta com Perfil) */}
+              <div className="absolute top-8 sm:top-9 inset-x-4 sm:inset-x-5 flex justify-between items-center z-30 px-1">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/20 shadow-sm bg-neutral-800">
+                    <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col drop-shadow-md">
+                    <span className="text-sm font-semibold text-white tracking-tight leading-none mb-0.5">
+                      {album.clientName}
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-white/80 font-medium leading-none">
+                      {album.subtitle || 'Álbum Fotográfico'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 sm:gap-3 items-center">
+                  <button onClick={() => setIsStoryPlaying(!isStoryPlaying)} className="text-white hover:opacity-70 transition-opacity drop-shadow-md">
+                    {isStoryPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                  </button>
+                  <button onClick={() => { setIsStoryPlaying(false); setActiveTab('gallery'); }} className="text-white hover:opacity-70 transition-opacity drop-shadow-md">
+                    <X size={26} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Foto do Story */}
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950">
+                <img src={album.photos[currentStoryIdx]} alt={`Story ${currentStoryIdx + 1}`} className="w-full h-full object-contain" />
+              </div>
+
+              {/* Toques Laterais para Retroceder / Avançar */}
+              <div className="absolute inset-0 z-20 flex pt-20">
+                <div className="w-[30%] h-full cursor-w-resize" onClick={() => { if (currentStoryIdx > 0) setCurrentStoryIdx(currentStoryIdx - 1); }} />
+                <div className="w-[70%] h-full cursor-e-resize" onClick={() => { 
+                  if (currentStoryIdx < album.photos.length - 1) { 
+                    setCurrentStoryIdx(currentStoryIdx + 1); 
+                  } else { 
+                    setIsStoryPlaying(false); 
+                    setActiveTab('gallery'); 
+                  } 
+                }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 3. MODAL DE LIGHTBOX (VISUALIZADOR INDIVIDUAL DE FOTOS) */}
       {lightboxPhoto && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
           <button 
             onClick={() => setLightboxPhoto(null)}
-            className="absolute top-6 right-6 text-white bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all border border-white/10"
+            className="absolute top-6 right-6 text-white bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all border border-white/10 z-50"
           >
             <X size={24} />
           </button>
-          <div className="max-w-5xl max-h-[85vh] flex items-center justify-center">
+          <div className="max-w-5xl max-h-[85vh] flex items-center justify-center relative">
             <img 
               src={lightboxPhoto} 
               alt="Visualização expandida" 
@@ -459,13 +439,40 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader Ajustado com Animação Premium "Criando seu Álbum"
+// Componente AlbumLoader (Com Animação e Pré-Carregamento Real das Imagens)
 function AlbumLoader({ shortId }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [album, setAlbum] = useState(null);
-  const [assembling, setAssembling] = useState(false);
+  const [status, setStatus] = useState('fetching'); // fetching, preloading, ready, error
   const [progress, setProgress] = useState(0);
+  const [album, setAlbum] = useState(null);
+
+  // Função para carregar as fotos na memória
+  const preloadImages = (photos, profileImage) => {
+    const allUrls = [...(photos || [])];
+    if (profileImage && !allUrls.includes(profileImage)) allUrls.push(profileImage);
+
+    if (allUrls.length === 0) {
+      setProgress(100);
+      setTimeout(() => setStatus('ready'), 500);
+      return;
+    }
+
+    let loaded = 0;
+    const total = allUrls.length;
+
+    allUrls.forEach(url => {
+      const img = new Image();
+      img.src = url;
+      const handleLoad = () => {
+        loaded++;
+        setProgress(Math.round((loaded / total) * 100));
+        if (loaded === total) {
+          setTimeout(() => setStatus('ready'), 800);
+        }
+      };
+      img.onload = handleLoad;
+      img.onerror = handleLoad; // Continua mesmo se uma foto der erro
+    });
+  };
 
   useEffect(() => {
     const loadAlbum = async () => {
@@ -473,116 +480,27 @@ function AlbumLoader({ shortId }) {
         const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
-          setAssembling(true);
+          setStatus('preloading');
+          preloadImages(albumData.photos, albumData.profileImage);
         } else {
           const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
           const localAlbum = localAlbums.find(a => a.shortId === shortId);
           if (localAlbum) {
             setAlbum(localAlbum);
-            setAssembling(true);
+            setStatus('preloading');
+            preloadImages(localAlbum.photos, localAlbum.profileImage);
           } else {
-            setError(true);
-            setLoading(false);
+            setStatus('error');
           }
         }
       } catch (err) {
-        setError(true);
-        setLoading(false);
+        setStatus('error');
       }
     };
     loadAlbum();
   }, [shortId]);
 
-  // Simulação de Progresso da Animação Cinematográfica (2.5 Segundos)
-  useEffect(() => {
-    if (assembling) {
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setLoading(false);
-            setAssembling(false);
-            return 100;
-          }
-          return prev + 4;
-        });
-      }, 100);
-      return () => clearInterval(interval);
-    }
-  }, [assembling]);
-
-  // ANIMAÇÃO EM ESTÁGIO DE BUSCA INICIAL (PLANILHA/BANCO)
-  if (loading && !assembling) {
-    return (
-      <div className="h-screen bg-black text-white flex flex-col items-center justify-center">
-        <Loader2 size={40} className="animate-spin text-[#d4af37] mb-3" />
-        <p className="text-gray-400 text-sm tracking-widest uppercase">Localizando Álbum...</p>
-      </div>
-    );
-  }
-
-  // ANIMAÇÃO EXCLUSIVA SOLICITADA: FOTOS SURGINDO E ENTRANDO NO PERFIL
-  if (assembling && album) {
-    return (
-      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
-        
-        {/* Estilos CSS Injetados para Efeitos Dinâmicos de Entrada de Fotos */}
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-300px, -200px) scale(0.2) rotate(-30deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter2 { 0% { transform: translate(320px, -150px) scale(0.2) rotate(40deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-250px, 250px) scale(0.2) rotate(-15deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          @keyframes flyCenter4 { 0% { transform: translate(280px, 280px) scale(0.2) rotate(25deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
-          .flying-card-1 { animation: flyCenter1 2.2s infinite ease-in-out; }
-          .flying-card-2 { animation: flyCenter2 2s infinite ease-in-out; delay: 0.3s; }
-          .flying-card-3 { animation: flyCenter3 2.4s infinite ease-in-out; delay: 0.1s; }
-          .flying-card-4 { animation: flyCenter4 2.1s infinite ease-in-out; delay: 0.5s; }
-        `}} />
-
-        {/* Fotos Flutuantes que convergem para o centro */}
-        {album.photos?.slice(0, 4).map((img, i) => {
-          const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
-          return (
-            <div 
-              key={i} 
-              className={`absolute w-20 h-20 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`}
-              style={{ top: 'calc(50% - 40px)', left: 'calc(50% - 40px)' }}
-            >
-              <img src={img} alt="flying asset" className="w-full h-full object-cover blur-[0.5px]" />
-            </div>
-          );
-        })}
-
-        {/* Bloco Central do Perfil */}
-        <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.2)] mb-6 bg-neutral-900 transition-transform duration-500 hover:scale-105">
-            <img 
-              src={album.profileImage || album.photos[0]} 
-              alt="Perfil" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          
-          <h2 className="text-2xl font-bold tracking-tight text-white mb-1 drop-shadow">{album.clientName}</h2>
-          <p className="text-gray-400 text-sm mb-8 font-medium">{album.subtitle || 'Fotografia'}</p>
-          
-          {/* Mensagem e Barra de Progresso Real */}
-          <span className="text-xs text-[#d4af37] tracking-widest uppercase font-bold mb-3 block animate-pulse">
-            Criando seu Álbum
-          </span>
-          
-          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden border border-white/5 shadow-inner">
-            <div 
-              className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-100 ease-out rounded-full"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-      </div>
-    );
-  }
-
-  if (error || !album) {
+  if (status === 'error') {
     return (
       <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center font-['-apple-system','sans-serif']">
         <X size={48} className="text-red-500 mb-4" />
@@ -592,8 +510,74 @@ function AlbumLoader({ shortId }) {
     );
   }
 
+  // TELA UNIFICADA: "CRIANDO SEU ÁLBUM" + ANIMAÇÃO + PRELOAD
+  if (status === 'fetching' || status === 'preloading') {
+    return (
+      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
+        
+        {/* Keyframes de animação injetados */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes flyCenter1 { 0% { transform: translate(-300px, -200px) scale(0.2) rotate(-30deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
+          @keyframes flyCenter2 { 0% { transform: translate(320px, -150px) scale(0.2) rotate(40deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-250px, 250px) scale(0.2) rotate(-15deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
+          @keyframes flyCenter4 { 0% { transform: translate(280px, 280px) scale(0.2) rotate(25deg); opacity: 0; } 100% { transform: translate(0, 0) scale(1) rotate(0); opacity: 0.8; } }
+          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+          .flying-card-1 { animation: flyCenter1 2.2s infinite ease-in-out; }
+          .flying-card-2 { animation: flyCenter2 2s infinite ease-in-out; animation-delay: 0.3s; }
+          .flying-card-3 { animation: flyCenter3 2.4s infinite ease-in-out; animation-delay: 0.1s; }
+          .flying-card-4 { animation: flyCenter4 2.1s infinite ease-in-out; animation-delay: 0.5s; }
+        `}} />
+
+        {/* Fotos flutuantes ao redor (exibe as primeiras 4 do álbum, se existirem) */}
+        {album?.photos && album.photos.slice(0, 4).map((img, i) => {
+          const classes = ['flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4'];
+          return (
+            <div key={i} className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl border border-white/20 pointer-events-none z-0 ${classes[i]}`} style={{ top: 'calc(50% - 40px)', left: 'calc(50% - 40px)' }}>
+              <img src={img} alt="Amostra" className="w-full h-full object-cover blur-[0.5px]" />
+            </div>
+          );
+        })}
+
+        {/* Perfil Central e Barra de Progresso */}
+        <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.2)] mb-6 bg-neutral-900 transition-transform duration-500 hover:scale-105">
+            {album?.profileImage || album?.photos?.[0] ? (
+              <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-neutral-800 animate-pulse" />
+            )}
+          </div>
+          
+          <h2 className="text-2xl font-bold tracking-tight text-white mb-1 drop-shadow">
+            {album?.clientName || 'Conectando...'}
+          </h2>
+          <p className="text-gray-400 text-sm mb-8 font-medium">
+            {album?.subtitle || 'Preparando experiência visual...'}
+          </p>
+          
+          <span className="text-xs text-[#d4af37] tracking-widest uppercase font-bold mb-3 block animate-pulse">
+            Criando seu Álbum {status === 'preloading' ? `${progress}%` : ''}
+          </span>
+          
+          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden border border-white/5 shadow-inner relative">
+            {status === 'fetching' ? (
+               <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
+            ) : (
+               <div className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-300 ease-out rounded-full shadow-[0_0_10px_#d4af37]" style={{ width: `${progress}%` }} />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PRONTO: Exibe o App principal do Cliente
   return <ClientApp album={album} />;
 }
+
+// ============================================
+// DASHBOARD & EDITOR (ÁREA ADMINISTRATIVA INTACTA)
+// ============================================
 
 function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
