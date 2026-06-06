@@ -1,3 +1,6 @@
+Aqui está o código completo. A lógica do botão do WhatsApp já estava bem encaminhada no seu código, garantindo que ele respeite a condicional `hasWhatsApp`, possua um `z-index` elevado (`z-30`) para sobrepor a navegação no modo Stories, e se alinhe perfeitamente ao lado do botão de download na aba Galeria, mantendo o visual limpo e de alto padrão.
+
+```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -10,6 +13,7 @@ import {
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
 // COLOQUE SEUS DADOS DO GITHUB AQUI:
+
 const GITHUB_CONFIG = {
   owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
   repo: 'registre-album',          // Ex: 'meus-albuns'
@@ -425,6 +429,7 @@ function ClientApp({ album }) {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
           <div className="flex gap-3">
+            {/* Botão WhatsApp na aba Galeria */}
             {hasWhatsApp && (
               <button 
                 onClick={handleWhatsAppContact}
@@ -537,7 +542,7 @@ function ClientApp({ album }) {
                 <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center px-4">
                   <button
                     onClick={handleWhatsAppContact}
-                    className="bg-[#25D366] hover:bg-[#20b859] text-white font-semibold py-3 px-6 rounded-full flex items-center gap-2 transition-all shadow-lg active:scale-95"
+                    className="bg-[#25D366] hover:bg-[#20b859] text-white font-semibold py-3 px-6 rounded-full flex items-center gap-2 transition-all shadow-lg active:scale-95 pointer-events-auto"
                   >
                     <MessageCircle size={20} />
                     Falar com Fotógrafo
@@ -1296,3 +1301,5 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
+
+```
