@@ -25,7 +25,6 @@ function updateMetaTags(album) {
   const title = album.clientName || 'Álbum Fotográfico';
   const description = album.subtitle || 'Veja minhas fotos neste álbum exclusivo';
   
-  // Atualiza ou cria meta tags
   const metaTags = [
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
@@ -957,41 +956,59 @@ function AdminEditor({ album, onSave, onCancel }) {
     }
     
     setIsSaving(true);
+    setUploadProgress(0);
     
     try {
       const albumId = formData.shortId;
       const uploadedUrls = [];
       
+      // Verifica quais fotos já são URLs do GitHub
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
         if (photo.startsWith('https://raw.githubusercontent.com/')) {
           uploadedUrls.push(photo);
-          continue;
-        }
-        
-        const fileName = `photo_${Date.now()}_${i}.jpg`;
-        const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
-        
-        if (githubUrl) {
-          uploadedUrls.push(githubUrl);
         } else {
-          uploadedUrls.push(photo);
+          const fileName = `photo_${Date.now()}_${i}.jpg`;
+          const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
+          
+          if (githubUrl) {
+            uploadedUrls.push(githubUrl);
+          } else {
+            // Se falhar no GitHub, mantém o base64 (fallback)
+            uploadedUrls.push(photo);
+          }
         }
         
         setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
+        
+        // Pequeno delay para não sobrecarregar a API do GitHub
+        if (i % 5 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
+      
+      // Atualiza os índices dos destaques para os novos URLs
+      const updatedFeatured = selectedFeatured.map(oldIndex => {
+        const photoUrl = uploadedPhotos[oldIndex];
+        const newIndex = uploadedUrls.findIndex(url => url === photoUrl);
+        return newIndex !== -1 ? newIndex : oldIndex;
+      });
+      
+      const profilePhotoUrl = selectedProfile || uploadedUrls[0];
+      const profileIndex = uploadedUrls.findIndex(url => url === profilePhotoUrl);
+      const finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
       
       const finalData = { 
         ...formData, 
         googleDriveUrl: formData.googleDriveUrl,
         photos: uploadedUrls, 
-        featuredPhotos: selectedFeatured, 
-        profileImage: selectedProfile || uploadedUrls[0] 
+        featuredPhotos: updatedFeatured, 
+        profileImage: finalProfileImage
       };
       
       onSave(finalData);
-      alert('✅ Álbum salvo com sucesso! As fotos foram enviadas para o GitHub.');
+      alert(`✅ Álbum salvo com sucesso! ${uploadedUrls.length} fotos enviadas para o GitHub.`);
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -1069,7 +1086,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                   <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                 </div>
                 <p className="text-xs text-gray-500 mt-1 text-center">
-                  {isUploading ? 'Processando...' : 'Enviando para GitHub...'} {uploadProgress}%
+                  {isUploading ? 'Processando...' : `Enviando para GitHub... ${uploadProgress}%`}
                 </p>
               </div>
             )}
