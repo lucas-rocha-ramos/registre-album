@@ -17,6 +17,7 @@ const GITHUB_CONFIG = {
   branch: 'main'                     // ou 'master'
 };
 
+
 // Função para atualizar metatags para compartilhamento
 function updateMetaTags(album) {
   if (!album) return;
@@ -301,7 +302,6 @@ function ClientApp({ album }) {
     }
   };
 
-  // Verifica se tem WhatsApp configurado
   const hasWhatsApp = album.whatsappNumber && album.whatsappNumber.trim() !== '';
 
   if (!isAuthenticated) {
@@ -358,20 +358,6 @@ function ClientApp({ album }) {
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Botão flutuante do WhatsApp - aparece APENAS se tiver número configurado */}
-      {hasWhatsApp && (
-        <button
-          onClick={handleWhatsAppContact}
-          className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20b859] text-white p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 group"
-          aria-label="Contato WhatsApp"
-        >
-          <MessageCircle size={28} className="fill-white" />
-          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-1 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-            Falar com Fotógrafo
-          </span>
-        </button>
-      )}
-      
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -422,12 +408,22 @@ function ClientApp({ album }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
-          <button 
-            onClick={handleDownloadRedirect}
-            className="flex items-center gap-2 text-sm bg-[#d4af37] hover:bg-[#c4a137] text-black font-semibold px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95"
-          >
-            <Download size={16} /> Baixar Fotos
-          </button>
+          <div className="flex gap-3">
+            {hasWhatsApp && (
+              <button 
+                onClick={handleWhatsAppContact}
+                className="flex items-center gap-2 text-sm bg-[#25D366] hover:bg-[#20b859] text-white font-semibold px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95"
+              >
+                <MessageCircle size={16} /> WhatsApp
+              </button>
+            )}
+            <button 
+              onClick={handleDownloadRedirect}
+              className="flex items-center gap-2 text-sm bg-[#d4af37] hover:bg-[#c4a137] text-black font-semibold px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95"
+            >
+              <Download size={16} /> Baixar Fotos
+            </button>
+          </div>
         </div>
 
         {album.photos && album.photos.length > 0 ? (
@@ -519,6 +515,19 @@ function ClientApp({ album }) {
                   } 
                 }} />
               </div>
+
+              {/* Botão WhatsApp no rodapé do stories */}
+              {hasWhatsApp && (
+                <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center px-4">
+                  <button
+                    onClick={handleWhatsAppContact}
+                    className="bg-[#25D366] hover:bg-[#20b859] text-white font-semibold py-3 px-6 rounded-full flex items-center gap-2 transition-all shadow-lg active:scale-95"
+                  >
+                    <MessageCircle size={20} />
+                    Falar com Fotógrafo
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
