@@ -104,20 +104,6 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   }
 }
 
-async function testGitHubConnection() {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}`, {
-      headers: {
-        'Authorization': `token ${GITHUB_CONFIG.token}`,
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-    return response.ok;
-  } catch (error) {
-    return false;
-  }
-}
-
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
 
 const saveAlbumToSheets = async (album) => {
@@ -369,7 +355,6 @@ function ClientApp({ album }) {
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Botão flutuante do WhatsApp */}
       {album.whatsappNumber && (
         <button
           onClick={handleWhatsAppContact}
@@ -1014,11 +999,6 @@ function AdminEditor({ album, onSave, onCancel }) {
     setUploadProgress(0);
     
     try {
-      const isConnected = await testGitHubConnection();
-      if (!isConnected) {
-        throw new Error('Não foi possível conectar ao GitHub. Verifique token e repositório.');
-      }
-      
       const albumId = formData.shortId;
       const uploadedUrls = [];
       let successCount = 0;
@@ -1044,10 +1024,6 @@ function AdminEditor({ album, onSave, onCancel }) {
         
         setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
         await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      
-      if (successCount === 0) {
-        throw new Error('Nenhuma imagem foi enviada para o GitHub');
       }
       
       const updatedFeatured = [];
