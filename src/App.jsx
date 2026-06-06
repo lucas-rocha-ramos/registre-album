@@ -17,7 +17,6 @@ const GITHUB_CONFIG = {
   branch: 'main'                     // ou 'master'
 };
 
-
 // Função para atualizar metatags para compartilhamento
 function updateMetaTags(album) {
   if (!album) return;
@@ -26,35 +25,45 @@ function updateMetaTags(album) {
   const title = album.clientName || 'Álbum Fotográfico';
   const description = album.subtitle || 'Veja minhas fotos neste álbum exclusivo';
   
+  // Atualiza o título da página
+  document.title = title;
+  
+  // Atualiza meta tags existentes ou cria novas
   const metaTags = [
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
     { property: 'og:image', content: photoUrl },
     { property: 'og:url', content: window.location.href },
     { property: 'og:type', content: 'website' },
+    { property: 'og:site_name', content: title },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: title },
     { name: 'twitter:description', content: description },
-    { name: 'twitter:image', content: photoUrl }
+    { name: 'twitter:image', content: photoUrl },
+    { name: 'description', content: description }
   ];
   
   metaTags.forEach(tag => {
     let meta;
     if (tag.property) {
       meta = document.querySelector(`meta[property="${tag.property}"]`);
-    } else {
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', tag.property);
+        document.head.appendChild(meta);
+      }
+    } else if (tag.name) {
       meta = document.querySelector(`meta[name="${tag.name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', tag.name);
+        document.head.appendChild(meta);
+      }
     }
     
-    if (!meta) {
-      meta = document.createElement('meta');
-      if (tag.property) meta.setAttribute('property', tag.property);
-      if (tag.name) meta.setAttribute('name', tag.name);
-      document.head.appendChild(meta);
+    if (meta) {
+      meta.setAttribute('content', tag.content);
     }
-    
-    if (tag.property) meta.setAttribute('content', tag.content);
-    if (tag.name) meta.setAttribute('content', tag.content);
   });
 }
 
@@ -244,6 +253,13 @@ function ClientApp({ album }) {
   const featuredList = album.featuredPhotos?.length > 0 
     ? album.featuredPhotos.map(idx => album.photos[idx]).filter(Boolean)
     : album.photos?.slice(0, 5) || [];
+
+  // Atualiza metatags quando o álbum é carregado
+  useEffect(() => {
+    if (album) {
+      updateMetaTags(album);
+    }
+  }, [album]);
 
   useEffect(() => {
     if (!isAuthenticated && featuredList.length > 1) {
