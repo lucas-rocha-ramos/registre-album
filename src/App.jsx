@@ -3,13 +3,94 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  Upload, Save, FolderUp
+  Upload, Save, FolderUp, Github
 } from 'lucide-react';
 
-// Configuração da API do Google Sheets (mantido)
+// ============================================
+// CONFIGURAÇÃO DO GITHUB
+// ============================================
+// COLOQUE SEUS DADOS DO GITHUB AQUI:
+const GITHUB_CONFIG = {
+  owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
+  repo: 'registre-album',          // Ex: 'meus-albuns'
+  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
+  branch: 'main'                     // ou 'master'
+};
+
+// Função para fazer upload de imagem para o GitHub
+async function uploadImageToGitHub(imageBase64, fileName, albumId) {
+  try {
+    // Remove o prefixo "data:image/...;base64," se existir
+    const base64Data = imageBase64.includes('base64,') 
+      ? imageBase64.split('base64,')[1] 
+      : imageBase64;
+    
+    const path = `albums/${albumId}/${fileName}`;
+    
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_CONFIG.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: `Upload foto ${fileName} para álbum ${albumId}`,
+        content: base64Data,
+        branch: GITHUB_CONFIG.branch
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.content) {
+      // Retorna a URL raw da imagem no GitHub
+      return `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
+    }
+    
+    throw new Error('Falha no upload');
+  } catch (error) {
+    console.error('Erro ao fazer upload para GitHub:', error);
+    return null;
+  }
+}
+
+// Função para deletar imagem do GitHub
+async function deleteImageFromGitHub(fileName, albumId) {
+  try {
+    const path = `albums/${albumId}/${fileName}`;
+    
+    // Primeiro, pega o SHA do arquivo
+    const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+      headers: {
+        'Authorization': `token ${GITHUB_CONFIG.token}`,
+      }
+    });
+    
+    if (getResponse.ok) {
+      const data = await getResponse.json();
+      
+      // Deleta o arquivo
+      await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `token ${GITHUB_CONFIG.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Delete foto ${fileName} do álbum ${albumId}`,
+          sha: data.sha,
+          branch: GITHUB_CONFIG.branch
+        })
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao deletar imagem do GitHub:', error);
+  }
+}
+
+// Configuração da API do Google Sheets
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
 
-// Funções para salvar/carregar do Google Sheets
 const saveAlbumToSheets = async (album) => {
   try {
     const response = await fetch(SHEETS_API_URL, {
@@ -57,7 +138,6 @@ const loadAllAlbumsFromSheets = async () => {
   }
 };
 
-// Gerar ID curto (6 caracteres)
 const generateShortId = () => {
   return Math.random().toString(36).substring(2, 8);
 };
@@ -65,12 +145,12 @@ const generateShortId = () => {
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [albums, setAlbums] = useState(() => {
-    const saved = localStorage.getItem('studio_albums_v2');
+    const saved = localStorage.getItem('studio_albums_v3');
     return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
-    localStorage.setItem('studio_albums_v2', JSON.stringify(albums));
+    localStorage.setItem('studio_albums_v3', JSON.stringify(albums));
   }, [albums]);
 
   useEffect(() => {
@@ -88,11 +168,10 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Carregar álbuns da planilha ao iniciar
   useEffect(() => {
     const loadSheetsAlbums = async () => {
       const sheetsAlbums = await loadAllAlbumsFromSheets();
-      const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
+      const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
       
       const mergedAlbums = [...localAlbums];
       for (const [id, info] of Object.entries(sheetsAlbums)) {
@@ -134,7 +213,6 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente (mantido igual)
 function ClientApp({ album }) {
   const [pinInput, setPinInput] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
@@ -424,21 +502,12 @@ function ClientApp({ album }) {
   );
 }
 
-// AlbumLoader (mantido igual)
 function AlbumLoader({ shortId }) {
-  const [album, setAlbum] = useState(() => {
-    const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
-    return localAlbums.find(a => a.shortId === shortId) || null;
-  });
+  const [album, setAlbum] = useState(null);
   const [status, setStatus] = useState('fetching'); 
   const [actualProgress, setActualProgress] = useState(0);
   const [visualProgress, setVisualProgress] = useState(0);
   const [flyingCards, setFlyingCards] = useState([]); 
-  const [allPhotosList, setAllPhotosList] = useState(() => {
-    const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
-    const found = localAlbums.find(a => a.shortId === shortId);
-    return found?.photos || [];
-  });
 
   function vibrar() {
     if ('vibrate' in navigator) {
@@ -446,55 +515,17 @@ function AlbumLoader({ shortId }) {
     }
   }
 
-  const preloadImages = (photos, profileImage) => {
-    const priorityUrls = [];
-    if (profileImage) priorityUrls.push(profileImage);
-    
-    const remainingPhotos = (photos || []).filter(url => url !== profileImage);
-    const allUrls = [...priorityUrls, ...remainingPhotos];
-
-    if (allUrls.length === 0) {
-      setActualProgress(100);
-      return;
-    }
-
-    let loaded = 0;
-    const total = allUrls.length;
-
-    allUrls.forEach(url => {
-      const img = new Image();
-      img.src = url;
-      
-      const handleLoad = () => {
-        loaded++;
-        setActualProgress(Math.round((loaded / total) * 100));
-      };
-      
-      img.onload = handleLoad;
-      img.onerror = handleLoad; 
-    });
-  };
-
   useEffect(() => {
     const loadAlbum = async () => {
       try {
         const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
-          setAllPhotosList(albumData.photos || []);
-          setStatus('preloading');
-          preloadImages(albumData.photos, albumData.profileImage);
+          setStatus('ready');
+          setActualProgress(100);
+          setVisualProgress(100);
         } else {
-          const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
-          const localAlbum = localAlbums.find(a => a.shortId === shortId);
-          if (localAlbum) {
-            setAlbum(localAlbum);
-            setAllPhotosList(localAlbum.photos || []);
-            setStatus('preloading');
-            preloadImages(localAlbum.photos, localAlbum.profileImage);
-          } else {
-            setStatus('error');
-          }
+          setStatus('error');
         }
       } catch (err) {
         setStatus('error');
@@ -503,79 +534,9 @@ function AlbumLoader({ shortId }) {
     loadAlbum();
   }, [shortId]);
 
-  useEffect(() => {
-    if (status !== 'preloading') return;
-
-    const interval = setInterval(() => {
-      setVisualProgress((prev) => {
-        if (actualProgress === 100) {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setTimeout(() => setStatus('ready'), 400); 
-            return 100;
-          }
-          return prev + 1;
-        } else {
-          if (prev < actualProgress) {
-            return prev + 1;
-          }
-          return prev;
-        }
-      });
-    }, 50); 
-
-    return () => clearInterval(interval);
-  }, [status, actualProgress]);
-
-  useEffect(() => {
-    if (status !== 'preloading' || allPhotosList.length === 0) return;
-
-    let idx = 0;
-    const totalPhotos = allPhotosList.length;
-    const computedInterval = Math.max(400, Math.floor(3000 / totalPhotos));
-    let cardsCreated = 0;
-
-    const spawnInterval = setInterval(() => {
-      const targetPhoto = allPhotosList[idx % totalPhotos];
-      if (targetPhoto) {
-        const cardId = `card-${Date.now()}-${idx}`;
-        const cardType = (idx % 8) + 1;
-        
-        setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
-        cardsCreated++;
-        
-        setTimeout(() => {
-          vibrar();
-          
-          const profileEl = document.getElementById('profile-pulse');
-          if (profileEl) {
-            profileEl.classList.remove('profile-hardware-vibrate');
-            void profileEl.offsetWidth;
-            profileEl.classList.add('profile-hardware-vibrate');
-            
-            setTimeout(() => {
-              if (profileEl) {
-                profileEl.classList.remove('profile-hardware-vibrate');
-              }
-            }, 200);
-          }
-          
-          setFlyingCards(current => current.filter(c => c.id !== cardId));
-        }, 2200); 
-      }
-      idx++;
-      
-      if (cardsCreated >= totalPhotos) {
-        clearInterval(spawnInterval);
-      }
-    }, computedInterval); 
-
-    return () => clearInterval(spawnInterval);
-  }, [status, allPhotosList]);
-
   if (status === 'error') {
     return (
-      <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center font-['-apple-system','sans-serif']">
+      <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
         <X size={48} className="text-red-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Álbum não encontrado</h2>
         <p className="text-gray-400 text-sm">Verifique o link e tente novamente.</p>
@@ -583,89 +544,25 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  if (status === 'fetching' || status === 'preloading') {
+  if (status === 'fetching' || !album) {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
-        
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-340px, -260px) scale(0.4) rotate(-30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter2 { 0% { transform: translate(340px, -260px) scale(0.4) rotate(30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-340px, 260px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter4 { 0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter5 { 0% { transform: translate(0px, -360px) scale(0.4) rotate(10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter6 { 0% { transform: translate(0px, 360px) scale(0.4) rotate(-10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter7 { 0% { transform: translate(-420px, 0px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter8 { 0% { transform: translate(420px, 0px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
-          @keyframes hardwareVibration {
-            0% { transform: scale(1); }
-            20% { transform: scale(1.12) translate(-2px, 1px); box-shadow: 0 0 45px rgba(212,175,55,0.7); }
-            40% { transform: scale(1.02) translate(2px, -1px); }
-            60% { transform: scale(1.06) translate(-1px, -1px); box-shadow: 0 0 30px rgba(212,175,55,0.4); }
-            80% { transform: scale(1.01) translate(1px, 1px); }
-            100% { transform: scale(1); }
-          }
-          .flying-card-1 { animation: flyCenter1 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-2 { animation: flyCenter2 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-3 { animation: flyCenter3 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-4 { animation: flyCenter4 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-5 { animation: flyCenter5 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-6 { animation: flyCenter6 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-7 { animation: flyCenter7 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-8 { animation: flyCenter8 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
-        `}} />
-
+      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
-          
-          <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
-            
-            {flyingCards.map((card) => {
-              const classes = [
-                'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
-                'flying-card-5', 'flying-card-6', 'flying-card-7', 'flying-card-8'
-              ];
-              return (
-                <div 
-                  key={card.id} 
-                  className={`absolute inset-0 m-auto w-80 h-80 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
-                >
-                  <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
-                </div>
-              );
-            })}
-
-            <div 
-              id="profile-pulse"
-              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative"
-            >
-              {album?.profileImage || album?.photos?.[0] ? (
-                <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-neutral-800 animate-pulse flex items-center justify-center">
-                  <Camera size={24} className="text-neutral-600" />
-                </div>
-              )}
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 animate-pulse mb-6">
+            <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+              <Camera size={32} className="text-neutral-600" />
             </div>
           </div>
           
           <h2 className="text-2xl font-bold tracking-tight text-white mb-1 drop-shadow">
-            {album?.clientName || 'Conectando...'}
+            Carregando...
           </h2>
           <p className="text-gray-400 text-sm mb-8 font-medium">
-            {album?.subtitle || 'Preparando experiência visual...'}
+            Buscando informações do álbum
           </p>
           
-          <span className="text-xs text-[#d4af37] tracking-widest uppercase font-bold mb-3 block animate-pulse">
-            Criando seu Álbum {status === 'preloading' ? `${visualProgress}%` : ''}
-          </span>
-          
-          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden border border-white/5 shadow-inner relative">
-            {status === 'fetching' ? (
-               <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
-            ) : (
-               <div className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-300 ease-out rounded-full shadow-[0_0_10px_#d4af37]" style={{ width: `${visualProgress}%` }} />
-            )}
+          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden">
+            <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
           </div>
         </div>
       </div>
@@ -674,10 +571,6 @@ function AlbumLoader({ shortId }) {
 
   return <ClientApp album={album} />;
 }
-
-// ============================================
-// DASHBOARD & EDITOR (MODIFICADO - COM UPLOAD LOCAL)
-// ============================================
 
 function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
@@ -709,23 +602,23 @@ function AdminDashboard({ albums, setAlbums }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-gray-900 font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']">
+    <div className="min-h-screen bg-[#f5f5f7] text-gray-900">
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 sm:px-8 py-4 sm:py-5 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="bg-black text-[#d4af37] p-2 rounded-xl">
-            <Camera size={22} className="sm:w-6 sm:h-6" />
+            <Camera size={22} />
           </div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Studio Dashboard</h1>
         </div>
         <button onClick={() => window.location.hash = '#new'} className="bg-black text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium flex items-center gap-2 hover:bg-gray-800 transition-all text-sm sm:text-base shadow-sm">
-          <Plus size={16} className="sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Criar Álbum</span>
+          <Plus size={16} /> <span className="hidden sm:inline">Criar Álbum</span>
         </button>
       </header>
 
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Os Meus Envios</h2>
-          <p className="text-gray-500 text-sm mt-1">Álbuns com fotos enviadas do seu computador</p>
+          <p className="text-gray-500 text-sm mt-1">Álbuns com fotos salvas no GitHub</p>
         </div>
 
         {albums.length === 0 ? (
@@ -802,8 +695,8 @@ function AdminEditor({ album, onSave, onCancel }) {
   const [selectedProfile, setSelectedProfile] = useState(formData.profileImage || '');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Função para converter arquivo para Base64
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -813,7 +706,6 @@ function AdminEditor({ album, onSave, onCancel }) {
     });
   };
 
-  // Função para redimensionar imagem (opcional - reduz qualidade)
   const resizeImage = (base64, maxWidth = 1200) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -851,8 +743,12 @@ function AdminEditor({ album, onSave, onCancel }) {
       if (file.type.startsWith('image/')) {
         try {
           let base64 = await fileToBase64(file);
-          // Redimensiona para economizar espaço (opcional)
           base64 = await resizeImage(base64, 1200);
+          
+          // Aqui você pode criptografar a imagem antes de salvar
+          // Exemplo simples: (opcional)
+          // base64 = btoa(base64);
+          
           newPhotos.push(base64);
         } catch (error) {
           console.error('Erro ao processar imagem:', error);
@@ -866,7 +762,6 @@ function AdminEditor({ album, onSave, onCancel }) {
     setIsUploading(false);
     setUploadProgress(0);
     
-    // Limpa o input
     event.target.value = '';
   };
 
@@ -875,40 +770,78 @@ function AdminEditor({ album, onSave, onCancel }) {
     newPhotos.splice(index, 1);
     setUploadedPhotos(newPhotos);
     
-    // Remove dos destaques se necessário
     if (selectedFeatured.includes(index)) {
       setSelectedFeatured(selectedFeatured.filter(i => i !== index));
     }
     
-    // Remove do perfil se necessário
     if (selectedProfile === uploadedPhotos[index]) {
       setSelectedProfile('');
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!formData.googleDriveUrl) {
       alert("Por favor, insira o link do Google Drive para download das fotos originais.");
       return;
     }
+    
     if (uploadedPhotos.length === 0) {
       alert("Por favor, selecione pelo menos uma foto do seu computador.");
       return;
     }
     
-    const finalData = { 
-      ...formData, 
-      googleDriveUrl: formData.googleDriveUrl,
-      photos: uploadedPhotos, 
-      featuredPhotos: selectedFeatured, 
-      profileImage: selectedProfile || uploadedPhotos[0] 
-    };
-    onSave(finalData);
+    setIsSaving(true);
+    
+    try {
+      const albumId = formData.shortId;
+      const uploadedUrls = [];
+      
+      // Upload das fotos para o GitHub
+      for (let i = 0; i < uploadedPhotos.length; i++) {
+        const photo = uploadedPhotos[i];
+        
+        // Se já é uma URL do GitHub, não faz upload novamente
+        if (photo.startsWith('https://raw.githubusercontent.com/')) {
+          uploadedUrls.push(photo);
+          continue;
+        }
+        
+        const fileName = `photo_${Date.now()}_${i}.jpg`;
+        const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
+        
+        if (githubUrl) {
+          uploadedUrls.push(githubUrl);
+        } else {
+          uploadedUrls.push(photo); // Fallback para base64 se falhar
+        }
+        
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
+      }
+      
+      const finalData = { 
+        ...formData, 
+        googleDriveUrl: formData.googleDriveUrl,
+        photos: uploadedUrls, 
+        featuredPhotos: selectedFeatured, 
+        profileImage: selectedProfile || uploadedUrls[0] 
+      };
+      
+      onSave(finalData);
+      alert('✅ Álbum salvo com sucesso! As fotos foram enviadas para o GitHub.');
+      
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      alert('❌ Erro ao salvar o álbum. Verifique as configurações do GitHub.');
+    } finally {
+      setIsSaving(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] py-8 sm:py-12 px-4 font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']">
+    <div className="min-h-screen bg-[#f5f5f7] py-8 sm:py-12 px-4">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 sm:px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
           <h2 className="text-xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
@@ -947,10 +880,9 @@ function AdminEditor({ album, onSave, onCancel }) {
             <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
           </div>
 
-          {/* ÁREA DE UPLOAD DE FOTOS - NOVA */}
           <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
             <label className="block text-sm font-semibold text-gray-900 mb-2">📸 Fotos do Álbum</label>
-            <p className="text-xs text-gray-500 mb-4">Selecione as fotos do seu computador para serem exibidas no álbum (máximo 200 fotos).</p>
+            <p className="text-xs text-gray-500 mb-4">Selecione as fotos do seu computador. Elas serão salvas no GitHub.</p>
             
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <label className="flex-1 cursor-pointer">
@@ -964,17 +896,19 @@ function AdminEditor({ album, onSave, onCancel }) {
                   multiple
                   onChange={handleFileUpload}
                   className="hidden"
-                  disabled={isUploading}
+                  disabled={isUploading || isSaving}
                 />
               </label>
             </div>
 
-            {isUploading && (
+            {(isUploading || isSaving) && (
               <div className="mb-4">
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                   <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1 text-center">Enviando... {uploadProgress}%</p>
+                <p className="text-xs text-gray-500 mt-1 text-center">
+                  {isUploading ? 'Processando...' : 'Enviando para GitHub...'} {uploadProgress}%
+                </p>
               </div>
             )}
 
@@ -988,7 +922,8 @@ function AdminEditor({ album, onSave, onCancel }) {
                       <button
                         type="button"
                         onClick={() => handleRemovePhoto(idx)}
-                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        disabled={isSaving}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -1077,8 +1012,8 @@ function AdminEditor({ album, onSave, onCancel }) {
 
           <div className="pt-5 flex justify-end gap-3 border-t border-gray-100">
             <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
-            <button type="submit" className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm">
-              {isNew ? 'Criar Álbum' : 'Salvar Alterações'}
+            <button type="submit" disabled={isSaving} className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50">
+              {isSaving ? <Loader2 size={18} className="animate-spin" /> : (isNew ? 'Criar Álbum' : 'Salvar Alterações')}
             </button>
           </div>
         </form>
