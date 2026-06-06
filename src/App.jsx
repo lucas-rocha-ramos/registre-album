@@ -65,7 +65,6 @@ function updateMetaTags(album) {
 
 async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   try {
-    // Se já for URL do GitHub, retorna ela mesma
     if (imageBase64.startsWith('https://raw.githubusercontent.com/')) {
       return imageBase64;
     }
@@ -113,35 +112,44 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
     
     const data = await response.json();
     const url = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
-    console.log(`Uploaded ${fileName} to ${url}`);
     return url;
   } catch (error) {
     console.error('Erro no upload:', error);
-    return null;
+    throw error;
   }
 }
 
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
+// URL do Google Sheets - VERIFIQUE SE ESTÁ CORRETA
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwaNkmrY33Uf57_U1w5u1DRxNegt1xff9Us5hvicZiMVcXQj4d4Fe-wqwL_tSLdreY/exec';
 
 const saveAlbumToSheets = async (album) => {
   try {
-    console.log('Salvando no Sheets:', album);
+    console.log('Salvando no Sheets:', JSON.stringify(album, null, 2));
+    
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         action: 'save',
         id: album.shortId,
         album: album
       })
     });
+    
     const data = await response.json();
     console.log('Resposta do Sheets:', data);
-    return data.success === true;
+    
+    if (data.success === true) {
+      return { success: true, message: 'Salvo no Google Sheets' };
+    } else {
+      return { success: false, message: data.error || 'Erro desconhecido' };
+    }
   } catch (error) {
     console.error('Erro ao salvar no Sheets:', error);
-    return false;
+    return { success: false, message: error.message };
   }
 };
 
@@ -180,6 +188,7 @@ const generateShortId = () => {
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [albums, setAlbums] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
@@ -198,6 +207,7 @@ export default function App() {
 
   useEffect(() => {
     const loadSheetsAlbums = async () => {
+      setLoading(true);
       const sheetsAlbums = await loadAllAlbumsFromSheets();
       const albumsList = [];
       for (const id of Object.keys(sheetsAlbums)) {
@@ -207,6 +217,7 @@ export default function App() {
         }
       }
       setAlbums(albumsList);
+      setLoading(false);
     };
     loadSheetsAlbums();
   }, []);
@@ -218,17 +229,23 @@ export default function App() {
 
   if (hash === '#new') {
     return <AdminEditor onSave={async (newAlbum) => {
-      await saveAlbumToSheets(newAlbum);
-      const updatedAlbums = await loadAllAlbumsFromSheets();
-      const albumsList = [];
-      for (const id of Object.keys(updatedAlbums)) {
-        const fullAlbum = await loadAlbumFromSheets(id);
-        if (fullAlbum) {
-          albumsList.push(fullAlbum);
+      const result = await saveAlbumToSheets(newAlbum);
+      if (result.success) {
+        // Recarregar a lista
+        const sheetsAlbums = await loadAllAlbumsFromSheets();
+        const albumsList = [];
+        for (const id of Object.keys(sheetsAlbums)) {
+          const fullAlbum = await loadAlbumFromSheets(id);
+          if (fullAlbum) {
+            albumsList.push(fullAlbum);
+          }
         }
+        setAlbums(albumsList);
+        alert('✅ Álbum salvo com sucesso no Google Sheets!');
+        window.location.hash = '';
+      } else {
+        alert(`❌ Erro ao salvar: ${result.message}\n\nVerifique se a URL do Google Sheets está correta.`);
       }
-      setAlbums(albumsList);
-      window.location.hash = '';
     }} onCancel={() => window.location.hash = ''} />;
   }
 
@@ -236,18 +253,31 @@ export default function App() {
     const albumId = hash.replace('#edit_', '');
     const album = albums.find(a => a.id === albumId);
     return <AdminEditor album={album} onSave={async (updated) => {
-      await saveAlbumToSheets(updated);
-      const updatedAlbums = await loadAllAlbumsFromSheets();
-      const albumsList = [];
-      for (const id of Object.keys(updatedAlbums)) {
-        const fullAlbum = await loadAlbumFromSheets(id);
-        if (fullAlbum) {
-          albumsList.push(fullAlbum);
+      const result = await saveAlbumToSheets(updated);
+      if (result.success) {
+        const sheetsAlbums = await loadAllAlbumsFromSheets();
+        const albumsList = [];
+        for (const id of Object.keys(sheetsAlbums)) {
+          const fullAlbum = await loadAlbumFromSheets(id);
+          if (fullAlbum) {
+            albumsList.push(fullAlbum);
+          }
         }
+        setAlbums(albumsList);
+        alert('✅ Álbum atualizado com sucesso no Google Sheets!');
+        window.location.hash = '';
+      } else {
+        alert(`❌ Erro ao salvar: ${result.message}\n\nVerifique se a URL do Google Sheets está correta.`);
       }
-      setAlbums(albumsList);
-      window.location.hash = '';
     }} onCancel={() => window.location.hash = ''} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <Loader2 size={40} className="animate-spin text-[#d4af37]" />
+      </div>
+    );
   }
 
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
@@ -753,12 +783,9 @@ function AlbumLoader({ shortId }) {
 
 function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
-  const [savingToCloud, setSavingToCloud] = useState(false);
 
-  const handleDelete = async (id) => {
-    if(window.confirm('Excluir este álbum do seu histórico?')) {
-      setAlbums(albums.filter(a => a.id !== id));
-    }
+  const handleDelete = (id) => {
+    alert('Para excluir um álbum, remova-o manualmente no Google Sheets.');
   };
 
   const handleCopyLink = (album) => {
@@ -767,17 +794,6 @@ function AdminDashboard({ albums, setAlbums }) {
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleSaveToCloud = async (album) => {
-    setSavingToCloud(true);
-    const success = await saveAlbumToSheets(album);
-    if (success) {
-      alert('✅ Álbum publicado no Google Sheets! Link funciona em qualquer dispositivo.');
-    } else {
-      alert('❌ Erro ao publicar. Verifique a URL da API e as permissões.');
-    }
-    setSavingToCloud(false);
   };
 
   return (
@@ -797,7 +813,7 @@ function AdminDashboard({ albums, setAlbums }) {
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Os Meus Envios</h2>
-          <p className="text-gray-500 text-sm mt-1">Álbuns com fotos salvas no GitHub</p>
+          <p className="text-gray-500 text-sm mt-1">Álbuns salvos no Google Sheets</p>
         </div>
 
         {albums.length === 0 ? (
@@ -835,14 +851,6 @@ function AdminDashboard({ albums, setAlbums }) {
                     <button onClick={() => handleDelete(album.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
                   </div>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleSaveToCloud(album)} 
-                      disabled={savingToCloud}
-                      className="px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      {savingToCloud ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                      Publicar
-                    </button>
                     <button onClick={() => handleCopyLink(album)} className={`px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs ${copiedId === album.id ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}>
                       {copiedId === album.id ? <CheckCircle size={12} /> : <LinkIcon size={12} />}
                       Copiar Link
@@ -1031,13 +1039,11 @@ function AdminEditor({ album, onSave, onCancel }) {
       const albumId = formData.shortId;
       const uploadedUrls = [];
       let successCount = 0;
-      let failedCount = 0;
       
-      // Upload de Fotos da Galeria
+      // Upload de Fotos da Galeria para o GitHub
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
-        // Se já for URL do GitHub, mantém
         if (photo.startsWith('https://raw.githubusercontent.com/')) {
           uploadedUrls.push(photo);
           successCount++;
@@ -1049,23 +1055,22 @@ function AdminEditor({ album, onSave, onCancel }) {
             uploadedUrls.push(githubUrl);
             successCount++;
           } else {
-            // Se falhar o upload, mantém o base64 (fallback)
-            uploadedUrls.push(photo);
-            failedCount++;
+            throw new Error(`Falha ao fazer upload da foto ${i + 1}`);
           }
         }
         
         setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); 
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Upload Logo da Tela de Carregamento
       let finalLoaderLogo = loaderLogo;
-      if (loaderLogo && !loaderLogo.startsWith('https://raw.githubusercontent.com/') && !loaderLogo.startsWith('http')) {
+      if (loaderLogo && !loaderLogo.startsWith('https://raw.githubusercontent.com/')) {
         const fileName = `loader_logo_${Date.now()}.png`;
         const githubUrl = await uploadImageToGitHub(loaderLogo, fileName, albumId);
         if (githubUrl) {
           finalLoaderLogo = githubUrl;
+        } else {
+          throw new Error('Falha ao fazer upload da logo');
         }
       }
 
@@ -1073,12 +1078,16 @@ function AdminEditor({ album, onSave, onCancel }) {
       const finalLoaderBgs = [];
       for (let i = 0; i < loaderBackgrounds.length; i++) {
         const bg = loaderBackgrounds[i];
-        if (bg.startsWith('https://raw.githubusercontent.com/') || bg.startsWith('http')) {
+        if (bg.startsWith('https://raw.githubusercontent.com/')) {
           finalLoaderBgs.push(bg);
         } else {
           const fileName = `loader_bg_${Date.now()}_${i}.jpg`;
           const url = await uploadImageToGitHub(bg, fileName, albumId);
-          finalLoaderBgs.push(url || bg);
+          if (url) {
+            finalLoaderBgs.push(url);
+          } else {
+            throw new Error(`Falha ao fazer upload da imagem de fundo ${i + 1}`);
+          }
         }
         setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); 
       }
@@ -1093,9 +1102,9 @@ function AdminEditor({ album, onSave, onCancel }) {
       }
       
       let finalProfileImage = selectedProfile;
-      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/') && !selectedProfile.startsWith('http')) {
+      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/')) {
         const profileIndex = uploadedUrls.findIndex(url => url === selectedProfile);
-        finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : (uploadedUrls[0] || selectedProfile);
+        finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
       } else if (!finalProfileImage && uploadedUrls.length > 0) {
         finalProfileImage = uploadedUrls[0];
       }
@@ -1109,19 +1118,19 @@ function AdminEditor({ album, onSave, onCancel }) {
         loaderBackgrounds: finalLoaderBgs
       };
       
-      // Salvar no Google Sheets
-      const sheetsSuccess = await saveAlbumToSheets(finalData);
+      // Salvar APENAS no Google Sheets (sem localStorage)
+      const result = await saveAlbumToSheets(finalData);
       
-      if (sheetsSuccess) {
+      if (result.success) {
         onSave(finalData);
-        alert(`✅ Álbum salvo com sucesso! ${successCount} fotos enviadas para o GitHub. ${failedCount > 0 ? `(${failedCount} fotos mantidas em base64)` : ''}`);
+        alert(`✅ Álbum salvo com sucesso no Google Sheets! ${successCount} fotos enviadas para o GitHub.`);
       } else {
-        alert(`⚠️ Álbum salvo localmente, mas houve erro ao salvar no Google Sheets. ${successCount} fotos no GitHub.`);
+        throw new Error(`Erro no Google Sheets: ${result.message}`);
       }
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      alert(`❌ Erro ao salvar: ${error.message}`);
+      alert(`❌ Erro ao salvar: ${error.message}\n\nNenhum dado foi salvo localmente. Verifique sua conexão e tente novamente.`);
     } finally {
       setIsSaving(false);
       setUploadProgress(0);
@@ -1379,7 +1388,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                 <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
               </div>
               <p className="text-xs text-gray-500 mt-1 text-center">
-                {isUploading ? 'Processando imagens...' : `Salvando e enviando para GitHub... ${uploadProgress}%`}
+                {isUploading ? 'Processando imagens...' : `Enviando para GitHub e Google Sheets... ${uploadProgress}%`}
               </p>
             </div>
           )}
