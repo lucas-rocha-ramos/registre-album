@@ -3,7 +3,7 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  Upload, Save, FolderUp, Github
+  Upload, Save, FolderUp
 } from 'lucide-react';
 
 // ============================================
@@ -744,11 +744,6 @@ function AdminEditor({ album, onSave, onCancel }) {
         try {
           let base64 = await fileToBase64(file);
           base64 = await resizeImage(base64, 1200);
-          
-          // Aqui você pode criptografar a imagem antes de salvar
-          // Exemplo simples: (opcional)
-          // base64 = btoa(base64);
-          
           newPhotos.push(base64);
         } catch (error) {
           console.error('Erro ao processar imagem:', error);
@@ -798,11 +793,9 @@ function AdminEditor({ album, onSave, onCancel }) {
       const albumId = formData.shortId;
       const uploadedUrls = [];
       
-      // Upload das fotos para o GitHub
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
-        // Se já é uma URL do GitHub, não faz upload novamente
         if (photo.startsWith('https://raw.githubusercontent.com/')) {
           uploadedUrls.push(photo);
           continue;
@@ -814,7 +807,7 @@ function AdminEditor({ album, onSave, onCancel }) {
         if (githubUrl) {
           uploadedUrls.push(githubUrl);
         } else {
-          uploadedUrls.push(photo); // Fallback para base64 se falhar
+          uploadedUrls.push(photo);
         }
         
         setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
