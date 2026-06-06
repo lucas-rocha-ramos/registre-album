@@ -1,10 +1,3 @@
-O erro da tela branca (crash do React) ocorreu porque o ícone `Upload`, usado no botão da aba "Personalizar", acabou ficando de fora da lista de importações do `lucide-react` no topo do arquivo.
-
-Adicionei o `Upload` na importação e agora a tela renderizará perfeitamente sem quebrar. Nenhuma outra linha lógica ou visual foi alterada.
-
-Aqui está o código completo já corrigido:
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -121,7 +114,7 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   }
 }
 
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwaNkmrY33Uf57_U1w5u1DRxNegt1xff9Us5hvicZiMVcXQj4d4Fe-wqwL_tSLdreY/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
 
 const saveAlbumToSheets = async (album) => {
   try {
@@ -869,7 +862,7 @@ function AdminEditor({ album, onSave, onCancel }) {
     loaderBackgrounds: []
   });
   
-  const [activeTab, setActiveTab] = useState('dados'); // 'dados' ou 'personalizar'
+  const [activeTab, setActiveTab] = useState('dados'); 
   
   const [uploadedPhotos, setUploadedPhotos] = useState(formData.photos || []);
   const [selectedFeatured, setSelectedFeatured] = useState(formData.featuredPhotos || []);
@@ -1046,7 +1039,7 @@ function AdminEditor({ album, onSave, onCancel }) {
           uploadedUrls.push(photo);
         }
         
-        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); // 80% do progresso
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); 
         await new Promise(resolve => setTimeout(resolve, 200));
       }
 
@@ -1068,7 +1061,7 @@ function AdminEditor({ album, onSave, onCancel }) {
           const url = await uploadImageToGitHub(bg, fileName, albumId) || bg;
           finalLoaderBgs.push(url);
         }
-        setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); // Restantes 20%
+        setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); 
       }
       
       const updatedFeatured = [];
@@ -1393,5 +1386,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
