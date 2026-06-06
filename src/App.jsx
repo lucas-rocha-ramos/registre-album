@@ -3,10 +3,10 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  BarChart3, Award, Search, Upload, Save
+  Upload, Save, FolderUp
 } from 'lucide-react';
 
-// Configuração da API do Google Sheets
+// Configuração da API do Google Sheets (mantido)
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
 
 // Funções para salvar/carregar do Google Sheets
@@ -134,7 +134,7 @@ export default function App() {
   return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
 }
 
-// Componente da Visão do Cliente com Melhorias Premium
+// Componente da Visão do Cliente (mantido igual)
 function ClientApp({ album }) {
   const [pinInput, setPinInput] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(!album.pin);
@@ -146,7 +146,6 @@ function ClientApp({ album }) {
   
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
-  // Efeito de fundo na tela de Login focado estritamente nas fotos de Destaque
   const [bgImageIdx, setBgImageIdx] = useState(0);
   const featuredList = album.featuredPhotos?.length > 0 
     ? album.featuredPhotos.map(idx => album.photos[idx]).filter(Boolean)
@@ -161,7 +160,6 @@ function ClientApp({ album }) {
     }
   }, [isAuthenticated, featuredList]);
 
-  // Controle de reprodução automática dos Stories
   useEffect(() => {
     let interval;
     if (activeTab === 'stories' && isStoryPlaying && album.photos?.length > 0) {
@@ -199,7 +197,6 @@ function ClientApp({ album }) {
     }
   };
 
-  // TELA DE LOGIN COM PIN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -251,11 +248,9 @@ function ClientApp({ album }) {
     );
   }
 
-  // INTERFACE INTERNA (CABEÇALHO ALINHADO NO LADO ESQUERDO)
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {/* Cabeçalho da Galeria - 100% Alinhado à Esquerda */}
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center blur-sm opacity-40 scale-105"
@@ -282,7 +277,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* SELETOR DE ABAS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="flex justify-center border-b border-white/10 gap-8">
           <button 
@@ -304,7 +298,6 @@ function ClientApp({ album }) {
         </div>
       </div>
 
-      {/* ABA GALERIA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
@@ -344,7 +337,6 @@ function ClientApp({ album }) {
         )}
       </div>
 
-      {/* OVERLAY: ANIMAÇÃO STORIES (TELA CHEIA) */}
       {activeTab === 'stories' && (
         <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center sm:p-6 animate-fadeIn">
           {album.photos && album.photos.length > 0 && (
@@ -432,7 +424,7 @@ function ClientApp({ album }) {
   );
 }
 
-// Componente AlbumLoader - ANIMAÇÃO COM PULSAÇÃO REFATORADA (COM VIBRAÇÃO SINCRONIZADA)
+// AlbumLoader (mantido igual)
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(() => {
     const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v2') || '[]');
@@ -448,7 +440,6 @@ function AlbumLoader({ shortId }) {
     return found?.photos || [];
   });
 
-  // Função exata de vibração (200ms)
   function vibrar() {
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
@@ -536,21 +527,15 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  // SPAWN DAS FOTOS: Envia um card individualmente com espaçamento maior entre eles
   useEffect(() => {
     if (status !== 'preloading' || allPhotosList.length === 0) return;
 
     let idx = 0;
     const totalPhotos = allPhotosList.length;
-    // Ajustando o intervalo para garantir que todos os cards sejam enviados
-    // Cada card leva 2.2 segundos para completar a animação, então espaçamos adequadamente
     const computedInterval = Math.max(400, Math.floor(3000 / totalPhotos));
-    
-    // Armazena quantos cards já foram criados
     let cardsCreated = 0;
 
     const spawnInterval = setInterval(() => {
-      // Pega a foto atual baseada no índice, mas usando a lista completa
       const targetPhoto = allPhotosList[idx % totalPhotos];
       if (targetPhoto) {
         const cardId = `card-${Date.now()}-${idx}`;
@@ -559,7 +544,6 @@ function AlbumLoader({ shortId }) {
         setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
         cardsCreated++;
         
-        // Exatamente no momento do impacto visual (2200ms): Vibra e adiciona a classe de pulsação
         setTimeout(() => {
           vibrar();
           
@@ -581,7 +565,6 @@ function AlbumLoader({ shortId }) {
       }
       idx++;
       
-      // Se já criamos todos os cards necessários (um para cada foto), para o intervalo
       if (cardsCreated >= totalPhotos) {
         clearInterval(spawnInterval);
       }
@@ -637,7 +620,6 @@ function AlbumLoader({ shortId }) {
           
           <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
             
-            {/* CARDS COM O TAMANHO DO PERFIL - UM CARD PARA CADA FOTO DO ÁLBUM */}
             {flyingCards.map((card) => {
               const classes = [
                 'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
@@ -653,7 +635,6 @@ function AlbumLoader({ shortId }) {
               );
             })}
 
-            {/* PERFIL COM z-30 E ID PARA RECEBER A PULSAÇÃO */}
             <div 
               id="profile-pulse"
               className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative"
@@ -695,7 +676,7 @@ function AlbumLoader({ shortId }) {
 }
 
 // ============================================
-// DASHBOARD & EDITOR (ÁREA ADMINISTRATIVA INTACTA)
+// DASHBOARD & EDITOR (MODIFICADO - COM UPLOAD LOCAL)
 // ============================================
 
 function AdminDashboard({ albums, setAlbums }) {
@@ -744,7 +725,7 @@ function AdminDashboard({ albums, setAlbums }) {
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Os Meus Envios</h2>
-          <p className="text-gray-500 text-sm mt-1">Álbuns configurados para extração do Google Drive</p>
+          <p className="text-gray-500 text-sm mt-1">Álbuns com fotos enviadas do seu computador</p>
         </div>
 
         {albums.length === 0 ? (
@@ -753,7 +734,7 @@ function AdminDashboard({ albums, setAlbums }) {
               <ImageIcon size={40} className="text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-700">Nenhum álbum criado</h3>
-            <p className="text-gray-500 text-sm mt-2 mb-6">Crie o seu primeiro álbum informando o link de uma pasta do Google Drive.</p>
+            <p className="text-gray-500 text-sm mt-2 mb-6">Crie o seu primeiro álbum enviando fotos do seu computador.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -816,94 +797,113 @@ function AdminEditor({ album, onSave, onCancel }) {
     featuredPhotos: []
   });
   
-  const [extractedPhotos, setExtractedPhotos] = useState(formData.photos || []);
+  const [uploadedPhotos, setUploadedPhotos] = useState(formData.photos || []);
   const [selectedFeatured, setSelectedFeatured] = useState(formData.featuredPhotos || []);
   const [selectedProfile, setSelectedProfile] = useState(formData.profileImage || '');
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionError, setExtractionError] = useState(false);
-  const [extractionMessage, setExtractionMessage] = useState('');
-  const [extractedUrl, setExtractedUrl] = useState(formData.googleDriveUrl || '');
-  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const extractPhotosFromDrive = async (updateOnly = false) => {
-    if (!extractedUrl || !extractedUrl.includes('drive.google.com')) {
-      alert("Por favor, insira um link válido de uma pasta do Google Drive");
-      return;
-    }
+  // Função para converter arquivo para Base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
 
-    setIsExtracting(true);
-    setExtractionError(false);
-    setExtractionMessage(updateOnly ? 'A atualizar novas fotos...' : 'A extrair fotos do Google Drive...');
-    setExtractionProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setExtractionProgress(prev => prev >= 90 ? 90 : prev + 15);
-    }, 200);
-    
-    try {
-      const apiUrl = `https://api-extrator-albuns.vercel.app/api/extract?url=${encodeURIComponent(extractedUrl)}`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      
-      if (data.success && data.photos && data.photos.length > 0) {
-        setExtractionProgress(100);
-        const validPhotos = data.photos.filter(photo => photo && photo.startsWith('http'));
+  // Função para redimensionar imagem (opcional - reduz qualidade)
+  const resizeImage = (base64, maxWidth = 1200) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
         
-        let newPhotos = validPhotos;
-        let addedCount = validPhotos.length;
-        
-        if (updateOnly) {
-          const existingUrls = new Set(extractedPhotos);
-          newPhotos = [...extractedPhotos];
-          let count = 0;
-          
-          for (const photo of validPhotos) {
-            if (!existingUrls.has(photo)) {
-              newPhotos.push(photo);
-              count++;
-            }
-          }
-          addedCount = count;
-          setExtractedPhotos(newPhotos);
-          setExtractionMessage(`${addedCount} nova(s) foto(s) adicionada(s)! Total: ${newPhotos.length} fotos`);
-        } else {
-          setExtractedPhotos(validPhotos);
-          setExtractionMessage(`${validPhotos.length} fotos extraídas com sucesso!`);
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
         }
         
-        setSelectedFeatured([]);
-        setSelectedProfile('');
-        setFormData(prev => ({ ...prev, photos: newPhotos }));
-        setTimeout(() => setExtractionMessage(''), 3000);
-      } else {
-        setExtractionError(true);
-        setExtractionMessage(data.error || 'Não foi possível extrair as fotos. Verifique se a pasta é pública.');
-        if (!updateOnly) setExtractedPhotos([]);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = base64;
+    });
+  };
+
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const newPhotos = [...uploadedPhotos];
+    let processed = 0;
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        try {
+          let base64 = await fileToBase64(file);
+          // Redimensiona para economizar espaço (opcional)
+          base64 = await resizeImage(base64, 1200);
+          newPhotos.push(base64);
+        } catch (error) {
+          console.error('Erro ao processar imagem:', error);
+        }
       }
-    } catch (error) {
-      console.error("Erro ao extrair:", error);
-      setExtractionError(true);
-      setExtractionMessage('Erro ao conectar com a API. Tente novamente.');
-      if (!updateOnly) setExtractedPhotos([]);
-    } finally {
-      setTimeout(() => {
-        setIsExtracting(false);
-        clearInterval(progressInterval);
-      }, 500);
+      processed++;
+      setUploadProgress(Math.round((processed / files.length) * 100));
+    }
+    
+    setUploadedPhotos(newPhotos);
+    setIsUploading(false);
+    setUploadProgress(0);
+    
+    // Limpa o input
+    event.target.value = '';
+  };
+
+  const handleRemovePhoto = (index) => {
+    const newPhotos = [...uploadedPhotos];
+    newPhotos.splice(index, 1);
+    setUploadedPhotos(newPhotos);
+    
+    // Remove dos destaques se necessário
+    if (selectedFeatured.includes(index)) {
+      setSelectedFeatured(selectedFeatured.filter(i => i !== index));
+    }
+    
+    // Remove do perfil se necessário
+    if (selectedProfile === uploadedPhotos[index]) {
+      setSelectedProfile('');
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!extractedUrl) {
-      alert("Por favor, insira o link do Google Drive.");
+    if (!formData.googleDriveUrl) {
+      alert("Por favor, insira o link do Google Drive para download das fotos originais.");
       return;
     }
-    if (extractedPhotos.length === 0) {
-      alert("Por favor, extraia as fotos do Google Drive primeiro.");
+    if (uploadedPhotos.length === 0) {
+      alert("Por favor, selecione pelo menos uma foto do seu computador.");
       return;
     }
-    const finalData = { ...formData, googleDriveUrl: extractedUrl, photos: extractedPhotos, featuredPhotos: selectedFeatured, profileImage: selectedProfile };
+    
+    const finalData = { 
+      ...formData, 
+      googleDriveUrl: formData.googleDriveUrl,
+      photos: uploadedPhotos, 
+      featuredPhotos: selectedFeatured, 
+      profileImage: selectedProfile || uploadedPhotos[0] 
+    };
     onSave(finalData);
   };
 
@@ -935,72 +935,72 @@ function AdminEditor({ album, onSave, onCancel }) {
             <input type="text" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: 1234 (Deixe vazio para acesso livre)" />
           </div>
 
-          <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
-            <label className="block text-sm font-semibold text-gray-900 mb-2">Link da Pasta no Google Drive</label>
-            <p className="text-xs text-gray-500 mb-4">Cole o link partilhado da pasta e clique em "Extrair Fotos". A pasta deve estar pública.</p>
-            
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <input 
-                type="url" 
-                value={extractedUrl} 
-                onChange={e => setExtractedUrl(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-[#d4af37] focus:border-transparent outline-none transition-all font-mono text-sm" 
-                placeholder="Ex: https://drive.google.com/drive/folders/..." 
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => extractPhotosFromDrive(false)}
-                  disabled={isExtracting}
-                  className="px-6 py-3 bg-[#d4af37] text-black font-semibold rounded-xl hover:bg-[#c4a137] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
-                >
-                  {isExtracting ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                  {isExtracting ? 'Extraindo...' : 'Extrair Fotos'}
-                </button>
-                {!isNew && (
-                  <button
-                    type="button"
-                    onClick={() => extractPhotosFromDrive(true)}
-                    disabled={isExtracting}
-                    className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
-                  >
-                    {isExtracting ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                    {isExtracting ? 'Atualizando...' : 'Atualizar Novas'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {isExtracting && (
-              <div className="w-full bg-gray-200 rounded-full h-1.5 mb-4 overflow-hidden">
-                <div className="bg-[#d4af37] h-1.5 rounded-full transition-all duration-300" style={{ width: `${extractionProgress}%` }}></div>
-              </div>
-            )}
-
-            {extractionMessage && (
-              <div className={`text-sm mt-2 p-3 rounded-xl ${extractionError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                {extractionError ? <X size={16} className="inline mr-2" /> : <CheckCircle size={16} className="inline mr-2" />}
-                {extractionMessage}
-              </div>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Link do Google Drive (para Download)</label>
+            <input 
+              type="url" 
+              value={formData.googleDriveUrl} 
+              onChange={e => setFormData({...formData, googleDriveUrl: e.target.value})}
+              className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
+              placeholder="https://drive.google.com/drive/folders/..." 
+            />
+            <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
           </div>
 
-          {extractedPhotos.length > 0 && (
-            <>
-              <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
-                  Fotos Extraídas ({extractedPhotos.length})
-                </label>
-                
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                  {extractedPhotos.map((photo, idx) => (
+          {/* ÁREA DE UPLOAD DE FOTOS - NOVA */}
+          <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
+            <label className="block text-sm font-semibold text-gray-900 mb-2">📸 Fotos do Álbum</label>
+            <p className="text-xs text-gray-500 mb-4">Selecione as fotos do seu computador para serem exibidas no álbum (máximo 200 fotos).</p>
+            
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <label className="flex-1 cursor-pointer">
+                <div className="w-full bg-[#d4af37] text-black font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-2 hover:bg-[#c4a137] transition-all">
+                  <FolderUp size={18} />
+                  Selecionar Fotos
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+              </label>
+            </div>
+
+            {isUploading && (
+              <div className="mb-4">
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 text-center">Enviando... {uploadProgress}%</p>
+              </div>
+            )}
+
+            {uploadedPhotos.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">{uploadedPhotos.length} foto(s) selecionada(s)</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2">
+                  {uploadedPhotos.map((photo, idx) => (
                     <div key={idx} className="relative group">
                       <img src={photo} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded-xl border border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(idx)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+          </div>
 
+          {uploadedPhotos.length > 0 && (
+            <>
               <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
                 <label className="block text-sm font-semibold text-gray-900 mb-3">📷 Foto de Perfil</label>
                 <p className="text-xs text-gray-500 mb-4">Clique em uma foto abaixo para definir como foto de perfil</p>
@@ -1018,7 +1018,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                 </div>
 
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                  {extractedPhotos.slice(0, 30).map((photo, idx) => (
+                  {uploadedPhotos.slice(0, 50).map((photo, idx) => (
                     <div
                       key={idx}
                       onClick={() => setSelectedProfile(photo)}
@@ -1040,7 +1040,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                 <p className="text-xs text-gray-500 mb-4">Selecione as fotos que aparecerão no fundo da tela de acesso (máximo 5)</p>
                 
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                  {extractedPhotos.slice(0, 30).map((photo, idx) => {
+                  {uploadedPhotos.slice(0, 50).map((photo, idx) => {
                     const isSelected = selectedFeatured.includes(idx);
                     return (
                       <div
