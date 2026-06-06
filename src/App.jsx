@@ -3,7 +3,7 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  Upload, Save, FolderUp
+  Upload, Save, FolderUp, MessageCircle
 } from 'lucide-react';
 
 // ============================================
@@ -60,35 +60,61 @@ function updateMetaTags(album) {
 // Função para fazer upload de imagem para o GitHub
 async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   try {
-    const base64Data = imageBase64.includes('base64,') 
-      ? imageBase64.split('base64,')[1] 
-      : imageBase64;
-    
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
     const path = `albums/${albumId}/${fileName}`;
+    
+    let sha = null;
+    try {
+      const checkResponse = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+        headers: {
+          'Authorization': `token ${GITHUB_CONFIG.token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      if (checkResponse.ok) {
+        const data = await checkResponse.json();
+        sha = data.sha;
+      }
+    } catch (e) {}
+    
+    const payload = {
+      message: `Upload ${fileName} para álbum ${albumId}`,
+      content: base64Data,
+      branch: GITHUB_CONFIG.branch
+    };
+    if (sha) payload.sha = sha;
     
     const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
       method: 'PUT',
       headers: {
         'Authorization': `token ${GITHUB_CONFIG.token}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
       },
-      body: JSON.stringify({
-        message: `Upload foto ${fileName} para álbum ${albumId}`,
-        content: base64Data,
-        branch: GITHUB_CONFIG.branch
-      })
+      body: JSON.stringify(payload)
     });
     
+    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+    
     const data = await response.json();
-    
-    if (data.content) {
-      return `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
-    }
-    
-    throw new Error('Falha no upload');
+    return `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
   } catch (error) {
-    console.error('Erro ao fazer upload para GitHub:', error);
+    console.error('Erro no upload:', error);
     return null;
+  }
+}
+
+async function testGitHubConnection() {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}`, {
+      headers: {
+        'Authorization': `token ${GITHUB_CONFIG.token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
   }
 }
 
@@ -278,6 +304,17 @@ function ClientApp({ album }) {
     }
   };
 
+  const handleWhatsAppContact = () => {
+    if (album.whatsappNumber) {
+      let phone = album.whatsappNumber.replace(/\D/g, '');
+      if (!phone.startsWith('55')) phone = '55' + phone;
+      const message = encodeURIComponent(`Olá! Vi seu álbum "${album.clientName}" e gostaria de saber mais informações.`);
+      window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    } else {
+      alert('Número de WhatsApp não disponível.');
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] p-4 relative overflow-hidden">
@@ -331,6 +368,20 @@ function ClientApp({ album }) {
 
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
+      
+      {/* Botão flutuante do WhatsApp */}
+      {album.whatsappNumber && (
+        <button
+          onClick={handleWhatsAppContact}
+          className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20b859] text-white p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 group"
+          aria-label="Contato WhatsApp"
+        >
+          <MessageCircle size={28} className="fill-white" />
+          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-1 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+            Falar com Fotógrafo
+          </span>
+        </button>
+      )}
       
       <div className="relative w-full h-64 sm:h-80 lg:h-96 overflow-hidden">
         <div 
@@ -808,6 +859,9 @@ function AdminDashboard({ albums, setAlbums }) {
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg text-gray-900 truncate">{album.clientName}</h3>
                     <p className="text-sm text-gray-500">{album.subtitle}</p>
+                    {album.whatsappNumber && (
+                      <p className="text-xs text-green-600 mt-1">📱 WhatsApp configurado</p>
+                    )}
                   </div>
                 </div>
                 
@@ -854,6 +908,7 @@ function AdminEditor({ album, onSave, onCancel }) {
     pin: '',
     profileImage: '',
     googleDriveUrl: '',
+    whatsappNumber: '',
     photos: [],
     featuredPhotos: []
   });
@@ -864,7 +919,6 @@ function AdminEditor({ album, onSave, onCancel }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadedUrls, setUploadedUrls] = useState([]);
 
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -960,61 +1014,68 @@ function AdminEditor({ album, onSave, onCancel }) {
     setUploadProgress(0);
     
     try {
+      const isConnected = await testGitHubConnection();
+      if (!isConnected) {
+        throw new Error('Não foi possível conectar ao GitHub. Verifique token e repositório.');
+      }
+      
       const albumId = formData.shortId;
-      const newUploadedUrls = [];
+      const uploadedUrls = [];
+      let successCount = 0;
       
-      // Filtra apenas fotos que ainda não são URLs do GitHub
-      const photosToUpload = uploadedPhotos.filter(photo => !photo.startsWith('https://raw.githubusercontent.com/'));
-      const existingUrls = uploadedPhotos.filter(photo => photo.startsWith('https://raw.githubusercontent.com/'));
-      
-      newUploadedUrls.push(...existingUrls);
-      
-      // Upload das novas fotos
-      for (let i = 0; i < photosToUpload.length; i++) {
-        const photo = photosToUpload[i];
+      for (let i = 0; i < uploadedPhotos.length; i++) {
+        const photo = uploadedPhotos[i];
+        
+        if (photo.startsWith('https://raw.githubusercontent.com/')) {
+          uploadedUrls.push(photo);
+          successCount++;
+          continue;
+        }
+        
         const fileName = `photo_${Date.now()}_${i}.jpg`;
         const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
         
         if (githubUrl) {
-          newUploadedUrls.push(githubUrl);
+          uploadedUrls.push(githubUrl);
+          successCount++;
         } else {
-          newUploadedUrls.push(photo);
+          uploadedUrls.push(photo);
         }
         
-        setUploadProgress(Math.round(((i + 1) / photosToUpload.length) * 100));
-        
-        // Delay para não sobrecarregar
-        await new Promise(resolve => setTimeout(resolve, 300));
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
       
-      // Reconstruir os índices dos destaques
+      if (successCount === 0) {
+        throw new Error('Nenhuma imagem foi enviada para o GitHub');
+      }
+      
       const updatedFeatured = [];
       for (let oldIndex of selectedFeatured) {
         const oldPhotoUrl = uploadedPhotos[oldIndex];
-        const newIndex = newUploadedUrls.findIndex(url => url === oldPhotoUrl);
+        const newIndex = uploadedUrls.findIndex(url => url === oldPhotoUrl);
         if (newIndex !== -1) {
           updatedFeatured.push(newIndex);
         }
       }
       
-      // Determina a foto de perfil final
       let finalProfileImage = selectedProfile;
       if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/')) {
-        const profileIndex = newUploadedUrls.findIndex(url => url === selectedProfile);
-        finalProfileImage = profileIndex !== -1 ? newUploadedUrls[profileIndex] : newUploadedUrls[0];
-      } else if (!finalProfileImage && newUploadedUrls.length > 0) {
-        finalProfileImage = newUploadedUrls[0];
+        const profileIndex = uploadedUrls.findIndex(url => url === selectedProfile);
+        finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
+      } else if (!finalProfileImage && uploadedUrls.length > 0) {
+        finalProfileImage = uploadedUrls[0];
       }
       
       const finalData = { 
         ...formData, 
         googleDriveUrl: formData.googleDriveUrl,
-        photos: newUploadedUrls, 
+        whatsappNumber: formData.whatsappNumber,
+        photos: uploadedUrls, 
         featuredPhotos: updatedFeatured, 
         profileImage: finalProfileImage
       };
       
-      // Salva no localStorage primeiro
       const existingAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
       if (isNew) {
         localStorage.setItem('studio_albums_v3', JSON.stringify([finalData, ...existingAlbums]));
@@ -1023,15 +1084,14 @@ function AdminEditor({ album, onSave, onCancel }) {
         localStorage.setItem('studio_albums_v3', JSON.stringify(updatedAlbums));
       }
       
-      // Salva no Google Sheets
       await saveAlbumToSheets(finalData);
       
       onSave(finalData);
-      alert(`✅ Álbum salvo com sucesso! ${newUploadedUrls.length} fotos salvas.`);
+      alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas para o GitHub.`);
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      alert('❌ Erro ao salvar o álbum. Verifique as configurações do GitHub.');
+      alert(`❌ Erro ao salvar: ${error.message}\n\nVerifique:\n1. Token do GitHub está correto\n2. Repositório existe e é público\n3. Token tem permissão 'repo'`);
     } finally {
       setIsSaving(false);
       setUploadProgress(0);
@@ -1076,6 +1136,18 @@ function AdminEditor({ album, onSave, onCancel }) {
               placeholder="https://drive.google.com/drive/folders/..." 
             />
             <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">📱 WhatsApp do Fotógrafo</label>
+            <input 
+              type="tel" 
+              value={formData.whatsappNumber || ''} 
+              onChange={e => setFormData({...formData, whatsappNumber: e.target.value})}
+              className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+              placeholder="Ex: (11) 91234-5678 ou 5511912345678" 
+            />
+            <p className="text-xs text-gray-500 mt-1">Número para contato via WhatsApp (aparecerá botão flutuante no álbum)</p>
           </div>
 
           <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
