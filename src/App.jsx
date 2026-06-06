@@ -169,14 +169,7 @@ const generateShortId = () => {
 
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
-  const [albums, setAlbums] = useState(() => {
-    const saved = localStorage.getItem('studio_albums_v3');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('studio_albums_v3', JSON.stringify(albums));
-  }, [albums]);
+  const [albums, setAlbums] = useState([]);
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
@@ -196,20 +189,14 @@ export default function App() {
   useEffect(() => {
     const loadSheetsAlbums = async () => {
       const sheetsAlbums = await loadAllAlbumsFromSheets();
-      const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
-      
-      const mergedAlbums = [...localAlbums];
+      const albumsList = [];
       for (const id of Object.keys(sheetsAlbums)) {
-        if (!mergedAlbums.find(a => a.shortId === id)) {
-          const fullAlbum = await loadAlbumFromSheets(id);
-          if (fullAlbum) {
-            mergedAlbums.push(fullAlbum);
-          }
+        const fullAlbum = await loadAlbumFromSheets(id);
+        if (fullAlbum) {
+          albumsList.push(fullAlbum);
         }
       }
-      if (mergedAlbums.length > localAlbums.length) {
-        setAlbums(mergedAlbums);
-      }
+      setAlbums(albumsList);
     };
     loadSheetsAlbums();
   }, []);
@@ -220,8 +207,17 @@ export default function App() {
   }
 
   if (hash === '#new') {
-    return <AdminEditor onSave={(newAlbum) => {
-      setAlbums([newAlbum, ...albums]);
+    return <AdminEditor onSave={async (newAlbum) => {
+      await saveAlbumToSheets(newAlbum);
+      const updatedAlbums = await loadAllAlbumsFromSheets();
+      const albumsList = [];
+      for (const id of Object.keys(updatedAlbums)) {
+        const fullAlbum = await loadAlbumFromSheets(id);
+        if (fullAlbum) {
+          albumsList.push(fullAlbum);
+        }
+      }
+      setAlbums(albumsList);
       window.location.hash = '';
     }} onCancel={() => window.location.hash = ''} />;
   }
@@ -229,8 +225,17 @@ export default function App() {
   if (hash.startsWith('#edit_')) {
     const albumId = hash.replace('#edit_', '');
     const album = albums.find(a => a.id === albumId);
-    return <AdminEditor album={album} onSave={(updated) => {
-      setAlbums(albums.map(a => a.id === updated.id ? updated : a));
+    return <AdminEditor album={album} onSave={async (updated) => {
+      await saveAlbumToSheets(updated);
+      const updatedAlbums = await loadAllAlbumsFromSheets();
+      const albumsList = [];
+      for (const id of Object.keys(updatedAlbums)) {
+        const fullAlbum = await loadAlbumFromSheets(id);
+        if (fullAlbum) {
+          albumsList.push(fullAlbum);
+        }
+      }
+      setAlbums(albumsList);
       window.location.hash = '';
     }} onCancel={() => window.location.hash = ''} />;
   }
@@ -742,7 +747,7 @@ function AdminDashboard({ albums, setAlbums }) {
   const [copiedId, setCopiedId] = useState(null);
   const [savingToCloud, setSavingToCloud] = useState(false);
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if(window.confirm('Excluir este álbum do seu histórico?')) {
       setAlbums(albums.filter(a => a.id !== id));
     }
@@ -1089,14 +1094,6 @@ function AdminEditor({ album, onSave, onCancel }) {
         loaderLogo: finalLoaderLogo,
         loaderBackgrounds: finalLoaderBgs
       };
-      
-      const existingAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
-      if (isNew) {
-        localStorage.setItem('studio_albums_v3', JSON.stringify([finalData, ...existingAlbums]));
-      } else {
-        const updatedAlbums = existingAlbums.map(a => a.id === finalData.id ? finalData : a);
-        localStorage.setItem('studio_albums_v3', JSON.stringify(updatedAlbums));
-      }
       
       await saveAlbumToSheets(finalData);
       
