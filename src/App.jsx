@@ -13,7 +13,7 @@ import {
 const GITHUB_CONFIG = {
   owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
   repo: 'registre-album',          // Ex: 'meus-albuns'
-  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
+  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
   branch: 'main'                     // ou 'master'
 };
 
