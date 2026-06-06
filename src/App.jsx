@@ -1,16 +1,9 @@
-Esse erro geralmente ocorre quando existem **caracteres invisíveis inválidos** ou espaços com formatação incorreta (como os chamados *non-breaking spaces*) misturados no código — algo muito comum que acontece ao copiar e colar texto de chats ou editores de texto. O compilador do Vite tenta ler a linha 4 (onde estão os ícones importados do `lucide-react`) e trava por não reconhecer o espaço invisível.
-
-Limpei todo o código, removendo esses caracteres ocultos e normalizando o espaçamento.
-
-Aqui está o código completo, ajustado e limpo. Pode copiar e colar diretamente no seu `App.jsx`:
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
-  Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2, RefreshCw,
-  Upload, Save, FolderUp, MessageCircle
+  Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2,
+  Save, FolderUp, MessageCircle
 } from 'lucide-react';
 
 // ============================================
@@ -206,7 +199,7 @@ export default function App() {
       const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
       
       const mergedAlbums = [...localAlbums];
-      for (const [id, info] of Object.entries(sheetsAlbums)) {
+      for (const id of Object.keys(sheetsAlbums)) {
         if (!mergedAlbums.find(a => a.shortId === id)) {
           const fullAlbum = await loadAlbumFromSheets(id);
           if (fullAlbum) {
@@ -1304,5 +1297,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
