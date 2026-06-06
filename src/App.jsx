@@ -1,4 +1,8 @@
-Aqui está o código completo. A lógica do botão do WhatsApp já estava bem encaminhada no seu código, garantindo que ele respeite a condicional `hasWhatsApp`, possua um `z-index` elevado (`z-30`) para sobrepor a navegação no modo Stories, e se alinhe perfeitamente ao lado do botão de download na aba Galeria, mantendo o visual limpo e de alto padrão.
+Esse erro geralmente ocorre quando existem **caracteres invisíveis inválidos** ou espaços com formatação incorreta (como os chamados *non-breaking spaces*) misturados no código — algo muito comum que acontece ao copiar e colar texto de chats ou editores de texto. O compilador do Vite tenta ler a linha 4 (onde estão os ícones importados do `lucide-react`) e trava por não reconhecer o espaço invisível.
+
+Limpei todo o código, removendo esses caracteres ocultos e normalizando o espaçamento.
+
+Aqui está o código completo, ajustado e limpo. Pode copiar e colar diretamente no seu `App.jsx`:
 
 ```jsx
 import React, { useState, useEffect } from 'react';
@@ -13,7 +17,6 @@ import {
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
 // COLOQUE SEUS DADOS DO GITHUB AQUI:
-
 const GITHUB_CONFIG = {
   owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
   repo: 'registre-album',          // Ex: 'meus-albuns'
