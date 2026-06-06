@@ -17,10 +17,50 @@ const GITHUB_CONFIG = {
   branch: 'main'                     // ou 'master'
 };
 
+// Função para atualizar metatags para compartilhamento
+function updateMetaTags(album) {
+  if (!album) return;
+  
+  const photoUrl = album.profileImage || (album.photos && album.photos[0]) || '';
+  const title = album.clientName || 'Álbum Fotográfico';
+  const description = album.subtitle || 'Veja minhas fotos neste álbum exclusivo';
+  
+  // Atualiza ou cria meta tags
+  const metaTags = [
+    { property: 'og:title', content: title },
+    { property: 'og:description', content: description },
+    { property: 'og:image', content: photoUrl },
+    { property: 'og:url', content: window.location.href },
+    { property: 'og:type', content: 'website' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: title },
+    { name: 'twitter:description', content: description },
+    { name: 'twitter:image', content: photoUrl }
+  ];
+  
+  metaTags.forEach(tag => {
+    let meta;
+    if (tag.property) {
+      meta = document.querySelector(`meta[property="${tag.property}"]`);
+    } else {
+      meta = document.querySelector(`meta[name="${tag.name}"]`);
+    }
+    
+    if (!meta) {
+      meta = document.createElement('meta');
+      if (tag.property) meta.setAttribute('property', tag.property);
+      if (tag.name) meta.setAttribute('name', tag.name);
+      document.head.appendChild(meta);
+    }
+    
+    if (tag.property) meta.setAttribute('content', tag.content);
+    if (tag.name) meta.setAttribute('content', tag.content);
+  });
+}
+
 // Função para fazer upload de imagem para o GitHub
 async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   try {
-    // Remove o prefixo "data:image/...;base64," se existir
     const base64Data = imageBase64.includes('base64,') 
       ? imageBase64.split('base64,')[1] 
       : imageBase64;
@@ -43,7 +83,6 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
     const data = await response.json();
     
     if (data.content) {
-      // Retorna a URL raw da imagem no GitHub
       return `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
     }
     
@@ -54,41 +93,6 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   }
 }
 
-// Função para deletar imagem do GitHub
-async function deleteImageFromGitHub(fileName, albumId) {
-  try {
-    const path = `albums/${albumId}/${fileName}`;
-    
-    // Primeiro, pega o SHA do arquivo
-    const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
-      headers: {
-        'Authorization': `token ${GITHUB_CONFIG.token}`,
-      }
-    });
-    
-    if (getResponse.ok) {
-      const data = await getResponse.json();
-      
-      // Deleta o arquivo
-      await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `token ${GITHUB_CONFIG.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: `Delete foto ${fileName} do álbum ${albumId}`,
-          sha: data.sha,
-          branch: GITHUB_CONFIG.branch
-        })
-      });
-    }
-  } catch (error) {
-    console.error('Erro ao deletar imagem do GitHub:', error);
-  }
-}
-
-// Configuração da API do Google Sheets
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec';
 
 const saveAlbumToSheets = async (album) => {
@@ -504,10 +508,11 @@ function ClientApp({ album }) {
 
 function AlbumLoader({ shortId }) {
   const [album, setAlbum] = useState(null);
-  const [status, setStatus] = useState('fetching'); 
+  const [status, setStatus] = useState('fetching');
   const [actualProgress, setActualProgress] = useState(0);
   const [visualProgress, setVisualProgress] = useState(0);
-  const [flyingCards, setFlyingCards] = useState([]); 
+  const [flyingCards, setFlyingCards] = useState([]);
+  const [allPhotosList, setAllPhotosList] = useState([]);
 
   function vibrar() {
     if ('vibrate' in navigator) {
@@ -515,15 +520,45 @@ function AlbumLoader({ shortId }) {
     }
   }
 
+  const preloadImages = (photos, profileImage) => {
+    const priorityUrls = [];
+    if (profileImage) priorityUrls.push(profileImage);
+    
+    const remainingPhotos = (photos || []).filter(url => url !== profileImage);
+    const allUrls = [...priorityUrls, ...remainingPhotos];
+
+    if (allUrls.length === 0) {
+      setActualProgress(100);
+      return;
+    }
+
+    let loaded = 0;
+    const total = allUrls.length;
+
+    allUrls.forEach(url => {
+      const img = new Image();
+      img.src = url;
+      
+      const handleLoad = () => {
+        loaded++;
+        setActualProgress(Math.round((loaded / total) * 100));
+      };
+      
+      img.onload = handleLoad;
+      img.onerror = handleLoad; 
+    });
+  };
+
   useEffect(() => {
     const loadAlbum = async () => {
       try {
         const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
-          setStatus('ready');
-          setActualProgress(100);
-          setVisualProgress(100);
+          setAllPhotosList(albumData.photos || []);
+          setStatus('preloading');
+          preloadImages(albumData.photos, albumData.profileImage);
+          updateMetaTags(albumData);
         } else {
           setStatus('error');
         }
@@ -533,6 +568,76 @@ function AlbumLoader({ shortId }) {
     };
     loadAlbum();
   }, [shortId]);
+
+  useEffect(() => {
+    if (status !== 'preloading') return;
+
+    const interval = setInterval(() => {
+      setVisualProgress((prev) => {
+        if (actualProgress === 100) {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setTimeout(() => setStatus('ready'), 400);
+            return 100;
+          }
+          return prev + 1;
+        } else {
+          if (prev < actualProgress) {
+            return prev + 1;
+          }
+          return prev;
+        }
+      });
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [status, actualProgress]);
+
+  useEffect(() => {
+    if (status !== 'preloading' || allPhotosList.length === 0) return;
+
+    let idx = 0;
+    const totalPhotos = allPhotosList.length;
+    const computedInterval = Math.max(400, Math.floor(3000 / totalPhotos));
+    let cardsCreated = 0;
+
+    const spawnInterval = setInterval(() => {
+      const targetPhoto = allPhotosList[idx % totalPhotos];
+      if (targetPhoto) {
+        const cardId = `card-${Date.now()}-${idx}`;
+        const cardType = (idx % 8) + 1;
+        
+        setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
+        cardsCreated++;
+        
+        setTimeout(() => {
+          vibrar();
+          
+          const profileEl = document.getElementById('profile-pulse');
+          if (profileEl) {
+            profileEl.classList.remove('profile-hardware-vibrate');
+            void profileEl.offsetWidth;
+            profileEl.classList.add('profile-hardware-vibrate');
+            
+            setTimeout(() => {
+              if (profileEl) {
+                profileEl.classList.remove('profile-hardware-vibrate');
+              }
+            }, 200);
+          }
+          
+          setFlyingCards(current => current.filter(c => c.id !== cardId));
+        }, 2200);
+      }
+      idx++;
+      
+      if (cardsCreated >= totalPhotos) {
+        clearInterval(spawnInterval);
+      }
+    }, computedInterval);
+
+    return () => clearInterval(spawnInterval);
+  }, [status, allPhotosList]);
 
   if (status === 'error') {
     return (
@@ -544,25 +649,89 @@ function AlbumLoader({ shortId }) {
     );
   }
 
-  if (status === 'fetching' || !album) {
+  if (status === 'fetching' || status === 'preloading') {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
+        
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes flyCenter1 { 0% { transform: translate(-340px, -260px) scale(0.4) rotate(-30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter2 { 0% { transform: translate(340px, -260px) scale(0.4) rotate(30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter3 { 0% { transform: translate(-340px, 260px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter4 { 0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter5 { 0% { transform: translate(0px, -360px) scale(0.4) rotate(10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter6 { 0% { transform: translate(0px, 360px) scale(0.4) rotate(-10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter7 { 0% { transform: translate(-420px, 0px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes flyCenter8 { 0% { transform: translate(420px, 0px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
+          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+          @keyframes hardwareVibration {
+            0% { transform: scale(1); }
+            20% { transform: scale(1.12) translate(-2px, 1px); box-shadow: 0 0 45px rgba(212,175,55,0.7); }
+            40% { transform: scale(1.02) translate(2px, -1px); }
+            60% { transform: scale(1.06) translate(-1px, -1px); box-shadow: 0 0 30px rgba(212,175,55,0.4); }
+            80% { transform: scale(1.01) translate(1px, 1px); }
+            100% { transform: scale(1); }
+          }
+          .flying-card-1 { animation: flyCenter1 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-2 { animation: flyCenter2 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-3 { animation: flyCenter3 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-4 { animation: flyCenter4 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-5 { animation: flyCenter5 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-6 { animation: flyCenter6 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-7 { animation: flyCenter7 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .flying-card-8 { animation: flyCenter8 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
+          .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
+        `}} />
+
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 animate-pulse mb-6">
-            <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-              <Camera size={32} className="text-neutral-600" />
+          
+          <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
+            
+            {flyingCards.map((card) => {
+              const classes = [
+                'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
+                'flying-card-5', 'flying-card-6', 'flying-card-7', 'flying-card-8'
+              ];
+              return (
+                <div 
+                  key={card.id} 
+                  className={`absolute inset-0 m-auto w-80 h-80 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
+                >
+                  <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
+                </div>
+              );
+            })}
+
+            <div 
+              id="profile-pulse"
+              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative"
+            >
+              {album?.profileImage || album?.photos?.[0] ? (
+                <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-neutral-800 animate-pulse flex items-center justify-center">
+                  <Camera size={24} className="text-neutral-600" />
+                </div>
+              )}
             </div>
           </div>
           
           <h2 className="text-2xl font-bold tracking-tight text-white mb-1 drop-shadow">
-            Carregando...
+            {album?.clientName || 'Conectando...'}
           </h2>
           <p className="text-gray-400 text-sm mb-8 font-medium">
-            Buscando informações do álbum
+            {album?.subtitle || 'Preparando experiência visual...'}
           </p>
           
-          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden">
-            <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
+          <span className="text-xs text-[#d4af37] tracking-widest uppercase font-bold mb-3 block animate-pulse">
+            Criando seu Álbum {status === 'preloading' ? `${visualProgress}%` : ''}
+          </span>
+          
+          <div className="w-48 bg-white/10 h-[5px] rounded-full overflow-hidden border border-white/5 shadow-inner relative">
+            {status === 'fetching' ? (
+               <div className="h-full w-1/3 bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] rounded-full animate-[slide_1.5s_ease-in-out_infinite]" />
+            ) : (
+               <div className="h-full bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] transition-all duration-300 ease-out rounded-full shadow-[0_0_10px_#d4af37]" style={{ width: `${visualProgress}%` }} />
+            )}
           </div>
         </div>
       </div>
