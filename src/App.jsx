@@ -9,15 +9,13 @@ import {
 // ============================================
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
-// COLOQUE SEUS DADOS DO GITHUB AQUI:
 const GITHUB_CONFIG = {
-  owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
-  repo: 'registre-album',          // Ex: 'meus-albuns'
-  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
-  branch: 'main'                     // ou 'master'
+  owner: 'lucas-rocha-ramos',
+  repo: 'registre-album',
+  token: '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',
+  branch: 'main'
 };
 
-// Função para atualizar metatags para compartilhamento
 function updateMetaTags(album) {
   if (!album) return;
   
@@ -25,10 +23,8 @@ function updateMetaTags(album) {
   const title = album.clientName || 'Álbum Fotográfico';
   const description = album.subtitle || 'Veja minhas fotos neste álbum exclusivo';
   
-  // Atualiza o título da página
   document.title = title;
   
-  // Atualiza meta tags existentes ou cria novas
   const metaTags = [
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
@@ -67,9 +63,13 @@ function updateMetaTags(album) {
   });
 }
 
-// Função para fazer upload de imagem para o GitHub
 async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   try {
+    // Se já for URL do GitHub, retorna ela mesma
+    if (imageBase64.startsWith('https://raw.githubusercontent.com/')) {
+      return imageBase64;
+    }
+    
     const base64Data = imageBase64.split(',')[1] || imageBase64;
     const path = `albums/${albumId}/${fileName}`;
     
@@ -85,7 +85,9 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
         const data = await checkResponse.json();
         sha = data.sha;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log('Arquivo não existe, criando novo...');
+    }
     
     const payload = {
       message: `Upload ${fileName} para álbum ${albumId}`,
@@ -104,10 +106,15 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
       body: JSON.stringify(payload)
     });
     
-    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`GitHub API error: ${response.status} - ${errorData.message}`);
+    }
     
     const data = await response.json();
-    return `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
+    const url = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
+    console.log(`Uploaded ${fileName} to ${url}`);
+    return url;
   } catch (error) {
     console.error('Erro no upload:', error);
     return null;
@@ -118,26 +125,29 @@ const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581
 
 const saveAlbumToSheets = async (album) => {
   try {
+    console.log('Salvando no Sheets:', album);
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        action: 'save',
         id: album.shortId,
         album: album
       })
     });
     const data = await response.json();
-    return data.success;
+    console.log('Resposta do Sheets:', data);
+    return data.success === true;
   } catch (error) {
-    console.error('Erro ao salvar:', error);
+    console.error('Erro ao salvar no Sheets:', error);
     return false;
   }
 };
 
 const loadAlbumFromSheets = async (shortId) => {
   try {
-    const response = await fetch(`${SHEETS_API_URL}?id=${shortId}`);
+    const response = await fetch(`${SHEETS_API_URL}?action=get&id=${shortId}`);
     const data = await response.json();
     if (data.success && data.album) {
       return data.album;
@@ -151,7 +161,7 @@ const loadAlbumFromSheets = async (shortId) => {
 
 const loadAllAlbumsFromSheets = async () => {
   try {
-    const response = await fetch(SHEETS_API_URL);
+    const response = await fetch(`${SHEETS_API_URL}?action=list`);
     const data = await response.json();
     if (data.success && data.albums) {
       return data.albums;
@@ -164,7 +174,7 @@ const loadAllAlbumsFromSheets = async () => {
 };
 
 const generateShortId = () => {
-  return Math.random().toString(36).substring(2, 8);
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
 export default function App() {
@@ -677,7 +687,6 @@ function AlbumLoader({ shortId }) {
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
         `}} />
 
-        {/* Grade de Imagens Animada no Fundo */}
         <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 w-full h-[120%] rotate-[-4deg] scale-110 opacity-30">
             {Array.from({ length: 25 }).map((_, i) => {
@@ -695,7 +704,6 @@ function AlbumLoader({ shortId }) {
           </div>
         </div>
         
-        {/* Degradê para focar no centro */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/90 via-[#0a0a0a]/60 to-[#0a0a0a] z-0" />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
@@ -1023,48 +1031,54 @@ function AdminEditor({ album, onSave, onCancel }) {
       const albumId = formData.shortId;
       const uploadedUrls = [];
       let successCount = 0;
+      let failedCount = 0;
       
       // Upload de Fotos da Galeria
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
+        // Se já for URL do GitHub, mantém
         if (photo.startsWith('https://raw.githubusercontent.com/')) {
           uploadedUrls.push(photo);
           successCount++;
-          continue;
-        }
-        
-        const fileName = `photo_${Date.now()}_${i}.jpg`;
-        const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
-        
-        if (githubUrl) {
-          uploadedUrls.push(githubUrl);
-          successCount++;
         } else {
-          uploadedUrls.push(photo);
+          const fileName = `photo_${Date.now()}_${i}.jpg`;
+          const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
+          
+          if (githubUrl) {
+            uploadedUrls.push(githubUrl);
+            successCount++;
+          } else {
+            // Se falhar o upload, mantém o base64 (fallback)
+            uploadedUrls.push(photo);
+            failedCount++;
+          }
         }
         
         setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); 
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Upload Logo da Tela de Carregamento
       let finalLoaderLogo = loaderLogo;
-      if (loaderLogo && !loaderLogo.startsWith('http')) {
+      if (loaderLogo && !loaderLogo.startsWith('https://raw.githubusercontent.com/') && !loaderLogo.startsWith('http')) {
         const fileName = `loader_logo_${Date.now()}.png`;
-        finalLoaderLogo = await uploadImageToGitHub(loaderLogo, fileName, albumId) || loaderLogo;
+        const githubUrl = await uploadImageToGitHub(loaderLogo, fileName, albumId);
+        if (githubUrl) {
+          finalLoaderLogo = githubUrl;
+        }
       }
 
       // Upload Imagens de Fundo do Loader
       const finalLoaderBgs = [];
       for (let i = 0; i < loaderBackgrounds.length; i++) {
         const bg = loaderBackgrounds[i];
-        if (bg.startsWith('http')) {
+        if (bg.startsWith('https://raw.githubusercontent.com/') || bg.startsWith('http')) {
           finalLoaderBgs.push(bg);
         } else {
           const fileName = `loader_bg_${Date.now()}_${i}.jpg`;
-          const url = await uploadImageToGitHub(bg, fileName, albumId) || bg;
-          finalLoaderBgs.push(url);
+          const url = await uploadImageToGitHub(bg, fileName, albumId);
+          finalLoaderBgs.push(url || bg);
         }
         setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); 
       }
@@ -1079,9 +1093,9 @@ function AdminEditor({ album, onSave, onCancel }) {
       }
       
       let finalProfileImage = selectedProfile;
-      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/')) {
+      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/') && !selectedProfile.startsWith('http')) {
         const profileIndex = uploadedUrls.findIndex(url => url === selectedProfile);
-        finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
+        finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : (uploadedUrls[0] || selectedProfile);
       } else if (!finalProfileImage && uploadedUrls.length > 0) {
         finalProfileImage = uploadedUrls[0];
       }
@@ -1095,10 +1109,15 @@ function AdminEditor({ album, onSave, onCancel }) {
         loaderBackgrounds: finalLoaderBgs
       };
       
-      await saveAlbumToSheets(finalData);
+      // Salvar no Google Sheets
+      const sheetsSuccess = await saveAlbumToSheets(finalData);
       
-      onSave(finalData);
-      alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas para o GitHub.`);
+      if (sheetsSuccess) {
+        onSave(finalData);
+        alert(`✅ Álbum salvo com sucesso! ${successCount} fotos enviadas para o GitHub. ${failedCount > 0 ? `(${failedCount} fotos mantidas em base64)` : ''}`);
+      } else {
+        alert(`⚠️ Álbum salvo localmente, mas houve erro ao salvar no Google Sheets. ${successCount} fotos no GitHub.`);
+      }
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -1122,7 +1141,6 @@ function AdminEditor({ album, onSave, onCancel }) {
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           
-          {/* Navegação por Abas */}
           <div className="flex gap-6 mb-6 border-b border-gray-100">
             <button 
               type="button" 
@@ -1140,7 +1158,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </button>
           </div>
 
-          {/* ABA 1: DADOS BÁSICOS */}
           {activeTab === 'dados' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1168,7 +1185,6 @@ function AdminEditor({ album, onSave, onCancel }) {
                   className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
                   placeholder="https://drive.google.com/drive/folders/..." 
                 />
-                <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
               </div>
 
               <div>
@@ -1289,7 +1305,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </div>
           )}
 
-          {/* ABA 2: PERSONALIZAR LOADING */}
           {activeTab === 'personalizar' && (
             <div className="space-y-6 animate-fadeIn">
               
@@ -1358,7 +1373,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </div>
           )}
 
-          {/* Progresso de Upload */}
           {(isUploading || isSaving) && (
             <div className="mb-4">
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -1370,7 +1384,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </div>
           )}
 
-          {/* Botões de Ação */}
           <div className="pt-5 flex justify-end gap-3 border-t border-gray-100">
             <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
             <button type="submit" disabled={isSaving} className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2">
