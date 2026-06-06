@@ -864,6 +864,7 @@ function AdminEditor({ album, onSave, onCancel }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadedUrls, setUploadedUrls] = useState([]);
 
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -960,55 +961,73 @@ function AdminEditor({ album, onSave, onCancel }) {
     
     try {
       const albumId = formData.shortId;
-      const uploadedUrls = [];
+      const newUploadedUrls = [];
       
-      // Verifica quais fotos já são URLs do GitHub
-      for (let i = 0; i < uploadedPhotos.length; i++) {
-        const photo = uploadedPhotos[i];
+      // Filtra apenas fotos que ainda não são URLs do GitHub
+      const photosToUpload = uploadedPhotos.filter(photo => !photo.startsWith('https://raw.githubusercontent.com/'));
+      const existingUrls = uploadedPhotos.filter(photo => photo.startsWith('https://raw.githubusercontent.com/'));
+      
+      newUploadedUrls.push(...existingUrls);
+      
+      // Upload das novas fotos
+      for (let i = 0; i < photosToUpload.length; i++) {
+        const photo = photosToUpload[i];
+        const fileName = `photo_${Date.now()}_${i}.jpg`;
+        const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
         
-        if (photo.startsWith('https://raw.githubusercontent.com/')) {
-          uploadedUrls.push(photo);
+        if (githubUrl) {
+          newUploadedUrls.push(githubUrl);
         } else {
-          const fileName = `photo_${Date.now()}_${i}.jpg`;
-          const githubUrl = await uploadImageToGitHub(photo, fileName, albumId);
-          
-          if (githubUrl) {
-            uploadedUrls.push(githubUrl);
-          } else {
-            // Se falhar no GitHub, mantém o base64 (fallback)
-            uploadedUrls.push(photo);
-          }
+          newUploadedUrls.push(photo);
         }
         
-        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
+        setUploadProgress(Math.round(((i + 1) / photosToUpload.length) * 100));
         
-        // Pequeno delay para não sobrecarregar a API do GitHub
-        if (i % 5 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+        // Delay para não sobrecarregar
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Reconstruir os índices dos destaques
+      const updatedFeatured = [];
+      for (let oldIndex of selectedFeatured) {
+        const oldPhotoUrl = uploadedPhotos[oldIndex];
+        const newIndex = newUploadedUrls.findIndex(url => url === oldPhotoUrl);
+        if (newIndex !== -1) {
+          updatedFeatured.push(newIndex);
         }
       }
       
-      // Atualiza os índices dos destaques para os novos URLs
-      const updatedFeatured = selectedFeatured.map(oldIndex => {
-        const photoUrl = uploadedPhotos[oldIndex];
-        const newIndex = uploadedUrls.findIndex(url => url === photoUrl);
-        return newIndex !== -1 ? newIndex : oldIndex;
-      });
-      
-      const profilePhotoUrl = selectedProfile || uploadedUrls[0];
-      const profileIndex = uploadedUrls.findIndex(url => url === profilePhotoUrl);
-      const finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
+      // Determina a foto de perfil final
+      let finalProfileImage = selectedProfile;
+      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/')) {
+        const profileIndex = newUploadedUrls.findIndex(url => url === selectedProfile);
+        finalProfileImage = profileIndex !== -1 ? newUploadedUrls[profileIndex] : newUploadedUrls[0];
+      } else if (!finalProfileImage && newUploadedUrls.length > 0) {
+        finalProfileImage = newUploadedUrls[0];
+      }
       
       const finalData = { 
         ...formData, 
         googleDriveUrl: formData.googleDriveUrl,
-        photos: uploadedUrls, 
+        photos: newUploadedUrls, 
         featuredPhotos: updatedFeatured, 
         profileImage: finalProfileImage
       };
       
+      // Salva no localStorage primeiro
+      const existingAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
+      if (isNew) {
+        localStorage.setItem('studio_albums_v3', JSON.stringify([finalData, ...existingAlbums]));
+      } else {
+        const updatedAlbums = existingAlbums.map(a => a.id === finalData.id ? finalData : a);
+        localStorage.setItem('studio_albums_v3', JSON.stringify(updatedAlbums));
+      }
+      
+      // Salva no Google Sheets
+      await saveAlbumToSheets(finalData);
+      
       onSave(finalData);
-      alert(`✅ Álbum salvo com sucesso! ${uploadedUrls.length} fotos enviadas para o GitHub.`);
+      alert(`✅ Álbum salvo com sucesso! ${newUploadedUrls.length} fotos salvas.`);
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
