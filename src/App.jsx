@@ -1,9 +1,16 @@
+O erro da tela branca (crash do React) ocorreu porque o ícone `Upload`, usado no botão da aba "Personalizar", acabou ficando de fora da lista de importações do `lucide-react` no topo do arquivo.
+
+Adicionei o `Upload` na importação e agora a tela renderizará perfeitamente sem quebrar. Nenhuma outra linha lógica ou visual foi alterada.
+
+Aqui está o código completo já corrigido:
+
+```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2,
-  Save, FolderUp, MessageCircle, Settings, FileText
+  Save, FolderUp, MessageCircle, Settings, FileText, Upload
 } from 'lucide-react';
 
 // ============================================
@@ -1386,3 +1393,5 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
+
+```
