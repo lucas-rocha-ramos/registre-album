@@ -291,15 +291,18 @@ function ClientApp({ album }) {
   };
 
   const handleWhatsAppContact = () => {
-    if (album.whatsappNumber) {
+    if (album.whatsappNumber && album.whatsappNumber.trim() !== '') {
       let phone = album.whatsappNumber.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = '55' + phone;
       const message = encodeURIComponent(`Olá! Vi seu álbum "${album.clientName}" e gostaria de saber mais informações.`);
       window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
     } else {
-      alert('Número de WhatsApp não disponível.');
+      alert('Número de WhatsApp não disponível para este álbum.');
     }
   };
+
+  // Verifica se tem WhatsApp configurado
+  const hasWhatsApp = album.whatsappNumber && album.whatsappNumber.trim() !== '';
 
   if (!isAuthenticated) {
     return (
@@ -355,7 +358,8 @@ function ClientApp({ album }) {
   return (
     <div className="min-h-screen bg-[#111] text-white font-['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] pb-12 relative">
       
-      {album.whatsappNumber && (
+      {/* Botão flutuante do WhatsApp - aparece APENAS se tiver número configurado */}
+      {hasWhatsApp && (
         <button
           onClick={handleWhatsAppContact}
           className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20b859] text-white p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 group"
@@ -844,7 +848,7 @@ function AdminDashboard({ albums, setAlbums }) {
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg text-gray-900 truncate">{album.clientName}</h3>
                     <p className="text-sm text-gray-500">{album.subtitle}</p>
-                    {album.whatsappNumber && (
+                    {album.whatsappNumber && album.whatsappNumber.trim() !== '' && (
                       <p className="text-xs text-green-600 mt-1">📱 WhatsApp configurado</p>
                     )}
                   </div>
@@ -1123,7 +1127,7 @@ function AdminEditor({ album, onSave, onCancel }) {
               className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
               placeholder="Ex: (11) 91234-5678 ou 5511912345678" 
             />
-            <p className="text-xs text-gray-500 mt-1">Número para contato via WhatsApp (aparecerá botão flutuante no álbum)</p>
+            <p className="text-xs text-gray-500 mt-1">Deixe em branco se não quiser botão de WhatsApp</p>
           </div>
 
           <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
