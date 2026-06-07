@@ -12,7 +12,7 @@ import {
 const GITHUB_CONFIG = {
   owner: 'lucas-rocha-ramos',
   repo: 'registre-album',
-  token: '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',
+  token: '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',
   branch: 'main'
 };
 
