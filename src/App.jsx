@@ -1,18 +1,9 @@
-Quando o comando `npm run build` falha com `exit 1` no Vite/React logo após corrigirmos um erro de sintaxe, o motivo em 99% das vezes é o **ESLint** (o verificador de código padrão do React) bloqueando o build porque existem **variáveis importadas ou declaradas que não estão sendo usadas**.
-
-No seu código, os ícones `RefreshCw` e `Upload` estavam sendo importados do `lucide-react` mas não eram usados em lugar nenhum. Além disso, havia uma variável `info` sobrando no loop de leitura da planilha. O verificador rigoroso do React cancela o build quando vê isso.
-
-Fiz a limpeza profunda dos espaços invisíveis e removi as variáveis não utilizadas para que o build passe liso, sem alterar em absolutamente nada o funcionamento ou o layout que você pediu.
-
-Aqui está o código completo, ajustado e pronto para o build:
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2,
-  Save, FolderUp, MessageCircle
+  Save, FolderUp, MessageCircle, Settings, FileText
 } from 'lucide-react';
 
 // ============================================
@@ -263,7 +254,6 @@ function ClientApp({ album }) {
     ? album.featuredPhotos.map(idx => album.photos[idx]).filter(Boolean)
     : album.photos?.slice(0, 5) || [];
 
-  // Atualiza metatags quando o álbum é carregado
   useEffect(() => {
     if (album) {
       updateMetaTags(album);
@@ -346,11 +336,11 @@ function ClientApp({ album }) {
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-[2]" />
         
         <div className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/15 rounded-3xl p-8 text-center shadow-2xl relative z-10">
-          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-2xl mx-auto mb-4 flex-shrink-0 bg-neutral-900">
+          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-2xl mx-auto mb-4 flex-shrink-0 bg-neutral-900 p-1">
             <img 
               src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa" 
-              className="w-full h-full object-cover" 
+              className="w-full h-full object-cover rounded-full" 
             />
           </div>
           
@@ -391,11 +381,11 @@ function ClientApp({ album }) {
         <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent" />
         
         <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-row items-center justify-start gap-4 sm:gap-6 text-left">
-          <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900">
+          <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900 p-1">
             <img 
               src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa do Álbum" 
-              className="w-full h-full object-cover" 
+              className="w-full h-full object-cover rounded-full" 
             />
           </div>
           <div className="flex flex-col items-start justify-center">
@@ -434,7 +424,6 @@ function ClientApp({ album }) {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-gray-200">Galeria ({album.photos?.length || 0})</h2>
           <div className="flex gap-3">
-            {/* Botão WhatsApp na aba Galeria */}
             {hasWhatsApp && (
               <button 
                 onClick={handleWhatsAppContact}
@@ -503,8 +492,8 @@ function ClientApp({ album }) {
 
               <div className="absolute top-8 sm:top-9 inset-x-4 sm:inset-x-5 flex justify-between items-center z-30 px-1">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/20 shadow-sm bg-neutral-800">
-                    <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/20 shadow-sm bg-neutral-800 p-0.5">
+                    <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover rounded-full" />
                   </div>
                   <div className="flex flex-col drop-shadow-md">
                     <span className="text-sm font-semibold text-white tracking-tight leading-none mb-0.5">
@@ -542,7 +531,6 @@ function ClientApp({ album }) {
                 }} />
               </div>
 
-              {/* Botão WhatsApp no rodapé do stories */}
               {hasWhatsApp && (
                 <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center px-4">
                   <button
@@ -585,21 +573,15 @@ function AlbumLoader({ shortId }) {
   const [status, setStatus] = useState('fetching');
   const [actualProgress, setActualProgress] = useState(0);
   const [visualProgress, setVisualProgress] = useState(0);
-  const [flyingCards, setFlyingCards] = useState([]);
-  const [allPhotosList, setAllPhotosList] = useState([]);
 
-  function vibrar() {
-    if ('vibrate' in navigator) {
-        navigator.vibrate(200);
-    }
-  }
-
-  const preloadImages = (photos, profileImage) => {
+  const preloadImages = (photos, profileImage, loaderLogo, loaderBackgrounds) => {
     const priorityUrls = [];
+    if (loaderLogo) priorityUrls.push(loaderLogo);
     if (profileImage) priorityUrls.push(profileImage);
+    if (loaderBackgrounds && loaderBackgrounds.length > 0) priorityUrls.push(...loaderBackgrounds);
     
-    const remainingPhotos = (photos || []).filter(url => url !== profileImage);
-    const allUrls = [...priorityUrls, ...remainingPhotos];
+    const remainingPhotos = (photos || []).filter(url => !priorityUrls.includes(url));
+    const allUrls = [...new Set([...priorityUrls, ...remainingPhotos])];
 
     if (allUrls.length === 0) {
       setActualProgress(100);
@@ -629,9 +611,8 @@ function AlbumLoader({ shortId }) {
         const albumData = await loadAlbumFromSheets(shortId);
         if (albumData) {
           setAlbum(albumData);
-          setAllPhotosList(albumData.photos || []);
           setStatus('preloading');
-          preloadImages(albumData.photos, albumData.profileImage);
+          preloadImages(albumData.photos, albumData.profileImage, albumData.loaderLogo, albumData.loaderBackgrounds);
           updateMetaTags(albumData);
         } else {
           setStatus('error');
@@ -667,52 +648,6 @@ function AlbumLoader({ shortId }) {
     return () => clearInterval(interval);
   }, [status, actualProgress]);
 
-  useEffect(() => {
-    if (status !== 'preloading' || allPhotosList.length === 0) return;
-
-    let idx = 0;
-    const totalPhotos = allPhotosList.length;
-    const computedInterval = Math.max(400, Math.floor(3000 / totalPhotos));
-    let cardsCreated = 0;
-
-    const spawnInterval = setInterval(() => {
-      const targetPhoto = allPhotosList[idx % totalPhotos];
-      if (targetPhoto) {
-        const cardId = `card-${Date.now()}-${idx}`;
-        const cardType = (idx % 8) + 1;
-        
-        setFlyingCards(prev => [...prev, { id: cardId, url: targetPhoto, type: cardType }]);
-        cardsCreated++;
-        
-        setTimeout(() => {
-          vibrar();
-          
-          const profileEl = document.getElementById('profile-pulse');
-          if (profileEl) {
-            profileEl.classList.remove('profile-hardware-vibrate');
-            void profileEl.offsetWidth;
-            profileEl.classList.add('profile-hardware-vibrate');
-            
-            setTimeout(() => {
-              if (profileEl) {
-                profileEl.classList.remove('profile-hardware-vibrate');
-              }
-            }, 200);
-          }
-          
-          setFlyingCards(current => current.filter(c => c.id !== cardId));
-        }, 2200);
-      }
-      idx++;
-      
-      if (cardsCreated >= totalPhotos) {
-        clearInterval(spawnInterval);
-      }
-    }, computedInterval);
-
-    return () => clearInterval(spawnInterval);
-  }, [status, allPhotosList]);
-
   if (status === 'error') {
     return (
       <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
@@ -724,65 +659,53 @@ function AlbumLoader({ shortId }) {
   }
 
   if (status === 'fetching' || status === 'preloading') {
+    const bgImages = album?.loaderBackgrounds?.length > 0 ? album.loaderBackgrounds : album?.photos || [];
+
     return (
       <div className="h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-['-apple-system','sans-serif']">
         
         <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flyCenter1 { 0% { transform: translate(-340px, -260px) scale(0.4) rotate(-30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter2 { 0% { transform: translate(340px, -260px) scale(0.4) rotate(30deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter3 { 0% { transform: translate(-340px, 260px) scale(0.4) rotate(-15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter4 { 0% { transform: translate(340px, 240px) scale(0.4) rotate(15deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter5 { 0% { transform: translate(0px, -360px) scale(0.4) rotate(10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter6 { 0% { transform: translate(0px, 360px) scale(0.4) rotate(-10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter7 { 0% { transform: translate(-420px, 0px) scale(0.4) rotate(25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes flyCenter8 { 0% { transform: translate(420px, 0px) scale(0.4) rotate(-25deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
-          @keyframes hardwareVibration {
-            0% { transform: scale(1); }
-            20% { transform: scale(1.12) translate(-2px, 1px); box-shadow: 0 0 45px rgba(212,175,55,0.7); }
-            40% { transform: scale(1.02) translate(2px, -1px); }
-            60% { transform: scale(1.06) translate(-1px, -1px); box-shadow: 0 0 30px rgba(212,175,55,0.4); }
-            80% { transform: scale(1.01) translate(1px, 1px); }
-            100% { transform: scale(1); }
+          @keyframes fadeRandom {
+            0%, 100% { opacity: 0; transform: scale(0.9); }
+            50% { opacity: 0.7; transform: scale(1.05); }
           }
-          .flying-card-1 { animation: flyCenter1 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-2 { animation: flyCenter2 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-3 { animation: flyCenter3 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-4 { animation: flyCenter4 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-5 { animation: flyCenter5 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-6 { animation: flyCenter6 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-7 { animation: flyCenter7 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .flying-card-8 { animation: flyCenter8 2.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards; }
-          .profile-hardware-vibrate { animation: hardwareVibration 0.18s ease-out; }
+          @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
         `}} />
+
+        {/* Grade de Imagens Animada no Fundo */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 w-full h-[120%] rotate-[-4deg] scale-110 opacity-30">
+            {Array.from({ length: 25 }).map((_, i) => {
+               const imgSrc = bgImages[i % (bgImages.length || 1)];
+               if (!imgSrc) return null;
+               const delay = Math.random() * 2;
+               const duration = 3 + Math.random() * 4;
+               return (
+                 <div key={i} className="relative w-full aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow-xl"
+                      style={{ animation: `fadeRandom ${duration}s infinite ease-in-out ${delay}s` }}>
+                   <img src={imgSrc} className="w-full h-full object-cover grayscale brightness-75" alt="" />
+                 </div>
+               )
+            })}
+          </div>
+        </div>
+        
+        {/* Degradê para focar no centro */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/90 via-[#0a0a0a]/60 to-[#0a0a0a] z-0" />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
           
-          <div className="relative w-80 h-80 mb-6 flex items-center justify-center">
-            
-            {flyingCards.map((card) => {
-              const classes = [
-                'flying-card-1', 'flying-card-2', 'flying-card-3', 'flying-card-4',
-                'flying-card-5', 'flying-card-6', 'flying-card-7', 'flying-card-8'
-              ];
-              return (
-                <div 
-                  key={card.id} 
-                  className={`absolute inset-0 m-auto w-80 h-80 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 pointer-events-none z-10 ${classes[card.type - 1]}`} 
-                >
-                  <img src={card.url} alt="Asset" className="absolute top-0 left-0 w-full h-full object-cover bg-neutral-900" />
-                </div>
-              );
-            })}
-
+          <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
             <div 
               id="profile-pulse"
-              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_30px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative"
+              className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-[0_0_40px_rgba(212,175,55,0.4)] bg-neutral-900 z-30 relative flex items-center justify-center p-2"
             >
-              {album?.profileImage || album?.photos?.[0] ? (
-                <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover" />
+              {album?.loaderLogo ? (
+                <img src={album.loaderLogo} alt="Logo" className="w-full h-full object-contain" />
+              ) : album?.profileImage || album?.photos?.[0] ? (
+                <img src={album.profileImage || album.photos[0]} alt="Perfil" className="w-full h-full object-cover rounded-full" />
               ) : (
-                <div className="w-full h-full bg-neutral-800 animate-pulse flex items-center justify-center">
+                <div className="w-full h-full bg-neutral-800 animate-pulse flex items-center justify-center rounded-full">
                   <Camera size={24} className="text-neutral-600" />
                 </div>
               )}
@@ -934,12 +857,20 @@ function AdminEditor({ album, onSave, onCancel }) {
     googleDriveUrl: '',
     whatsappNumber: '',
     photos: [],
-    featuredPhotos: []
+    featuredPhotos: [],
+    loaderLogo: '',
+    loaderBackgrounds: []
   });
+  
+  const [activeTab, setActiveTab] = useState('dados'); // 'dados' ou 'personalizar'
   
   const [uploadedPhotos, setUploadedPhotos] = useState(formData.photos || []);
   const [selectedFeatured, setSelectedFeatured] = useState(formData.featuredPhotos || []);
   const [selectedProfile, setSelectedProfile] = useState(formData.profileImage || '');
+  
+  const [loaderLogo, setLoaderLogo] = useState(formData.loaderLogo || '');
+  const [loaderBackgrounds, setLoaderBackgrounds] = useState(formData.loaderBackgrounds || []);
+  
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -1007,6 +938,44 @@ function AdminEditor({ album, onSave, onCancel }) {
     event.target.value = '';
   };
 
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.type.startsWith('image/')) {
+      let base64 = await fileToBase64(file);
+      base64 = await resizeImage(base64, 800);
+      setLoaderLogo(base64);
+    }
+    event.target.value = '';
+  };
+
+  const handleLoaderBgsUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const newBgs = [...loaderBackgrounds];
+    let processed = 0;
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        let base64 = await fileToBase64(file);
+        base64 = await resizeImage(base64, 800);
+        newBgs.push(base64);
+      }
+      processed++;
+      setUploadProgress(Math.round((processed / files.length) * 100));
+    }
+    
+    setLoaderBackgrounds(newBgs);
+    setIsUploading(false);
+    setUploadProgress(0);
+    
+    event.target.value = '';
+  };
+
   const handleRemovePhoto = (index) => {
     const newPhotos = [...uploadedPhotos];
     newPhotos.splice(index, 1);
@@ -1024,13 +993,21 @@ function AdminEditor({ album, onSave, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!formData.clientName) {
+      alert("Por favor, preencha o Nome do Cliente.");
+      setActiveTab('dados');
+      return;
+    }
+
     if (!formData.googleDriveUrl) {
       alert("Por favor, insira o link do Google Drive para download das fotos originais.");
+      setActiveTab('dados');
       return;
     }
     
     if (uploadedPhotos.length === 0) {
-      alert("Por favor, selecione pelo menos uma foto do seu computador.");
+      alert("Por favor, selecione pelo menos uma foto principal do seu computador na aba Dados Básicos.");
+      setActiveTab('dados');
       return;
     }
     
@@ -1042,6 +1019,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       const uploadedUrls = [];
       let successCount = 0;
       
+      // Upload de Fotos da Galeria
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
@@ -1061,8 +1039,29 @@ function AdminEditor({ album, onSave, onCancel }) {
           uploadedUrls.push(photo);
         }
         
-        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 100));
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); // 80% do progresso
         await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      // Upload Logo da Tela de Carregamento
+      let finalLoaderLogo = loaderLogo;
+      if (loaderLogo && !loaderLogo.startsWith('http')) {
+        const fileName = `loader_logo_${Date.now()}.png`;
+        finalLoaderLogo = await uploadImageToGitHub(loaderLogo, fileName, albumId) || loaderLogo;
+      }
+
+      // Upload Imagens de Fundo do Loader
+      const finalLoaderBgs = [];
+      for (let i = 0; i < loaderBackgrounds.length; i++) {
+        const bg = loaderBackgrounds[i];
+        if (bg.startsWith('http')) {
+          finalLoaderBgs.push(bg);
+        } else {
+          const fileName = `loader_bg_${Date.now()}_${i}.jpg`;
+          const url = await uploadImageToGitHub(bg, fileName, albumId) || bg;
+          finalLoaderBgs.push(url);
+        }
+        setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); // Restantes 20%
       }
       
       const updatedFeatured = [];
@@ -1084,11 +1083,11 @@ function AdminEditor({ album, onSave, onCancel }) {
       
       const finalData = { 
         ...formData, 
-        googleDriveUrl: formData.googleDriveUrl,
-        whatsappNumber: formData.whatsappNumber,
         photos: uploadedUrls, 
         featuredPhotos: updatedFeatured, 
-        profileImage: finalProfileImage
+        profileImage: finalProfileImage,
+        loaderLogo: finalLoaderLogo,
+        loaderBackgrounds: finalLoaderBgs
       };
       
       const existingAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
@@ -1106,7 +1105,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      alert(`❌ Erro ao salvar: ${error.message}\n\nVerifique:\n1. Token do GitHub está correto\n2. Repositório existe e é público\n3. Token tem permissão 'repo'`);
+      alert(`❌ Erro ao salvar: ${error.message}`);
     } finally {
       setIsSaving(false);
       setUploadProgress(0);
@@ -1125,180 +1124,261 @@ function AdminEditor({ album, onSave, onCancel }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome do Cliente / Casal</label>
-              <input required type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: Casamento João & Maria" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Subtítulo (Data ou Local)</label>
-              <input type="text" value={formData.subtitle} onChange={e => setFormData({...formData, subtitle: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: 15 de Outubro, 2026" />
-            </div>
+          
+          {/* Navegação por Abas */}
+          <div className="flex gap-6 mb-6 border-b border-gray-100">
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('dados')} 
+              className={`pb-3 font-semibold flex items-center gap-2 transition-all border-b-2 ${activeTab === 'dados' ? 'text-[#d4af37] border-[#d4af37]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+            >
+              <FileText size={18} /> Dados Básicos
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('personalizar')} 
+              className={`pb-3 font-semibold flex items-center gap-2 transition-all border-b-2 ${activeTab === 'personalizar' ? 'text-[#d4af37] border-[#d4af37]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+            >
+              <Settings size={18} /> Personalizar Loading
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">PIN de Acesso (Senha)</label>
-            <input type="text" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: 1234 (Deixe vazio para acesso livre)" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Link do Google Drive (para Download)</label>
-            <input 
-              type="url" 
-              value={formData.googleDriveUrl} 
-              onChange={e => setFormData({...formData, googleDriveUrl: e.target.value})}
-              className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
-              placeholder="https://drive.google.com/drive/folders/..." 
-            />
-            <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">📱 WhatsApp do Fotógrafo</label>
-            <input 
-              type="tel" 
-              value={formData.whatsappNumber || ''} 
-              onChange={e => setFormData({...formData, whatsappNumber: e.target.value})}
-              className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
-              placeholder="Ex: (11) 91234-5678 ou 5511912345678" 
-            />
-            <p className="text-xs text-gray-500 mt-1">Deixe em branco se não quiser botão de WhatsApp</p>
-          </div>
-
-          <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
-            <label className="block text-sm font-semibold text-gray-900 mb-2">📸 Fotos do Álbum</label>
-            <p className="text-xs text-gray-500 mb-4">Selecione as fotos do seu computador. Elas serão salvas no GitHub.</p>
-            
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <label className="flex-1 cursor-pointer">
-                <div className="w-full bg-[#d4af37] text-black font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-2 hover:bg-[#c4a137] transition-all">
-                  <FolderUp size={18} />
-                  Selecionar Fotos
+          {/* ABA 1: DADOS BÁSICOS */}
+          {activeTab === 'dados' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome do Cliente / Casal</label>
+                  <input type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: Casamento João & Maria" />
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  disabled={isUploading || isSaving}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Subtítulo (Data ou Local)</label>
+                  <input type="text" value={formData.subtitle} onChange={e => setFormData({...formData, subtitle: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: 15 de Outubro, 2026" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">PIN de Acesso (Senha)</label>
+                <input type="text" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" placeholder="Ex: 1234 (Deixe vazio para acesso livre)" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Link do Google Drive (para Download)</label>
+                <input 
+                  type="url" 
+                  value={formData.googleDriveUrl} 
+                  onChange={e => setFormData({...formData, googleDriveUrl: e.target.value})}
+                  className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
+                  placeholder="https://drive.google.com/drive/folders/..." 
                 />
-              </label>
-            </div>
-
-            {(isUploading || isSaving) && (
-              <div className="mb-4">
-                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-                <p className="text-xs text-gray-500 mt-1 text-center">
-                  {isUploading ? 'Processando...' : `Enviando para GitHub... ${uploadProgress}%`}
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
               </div>
-            )}
 
-            {uploadedPhotos.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">{uploadedPhotos.length} foto(s) selecionada(s)</p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2">
-                  {uploadedPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative group">
-                      <img src={photo} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded-xl border border-gray-200" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhoto(idx)}
-                        disabled={isSaving}
-                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">📱 WhatsApp do Fotógrafo</label>
+                <input 
+                  type="tel" 
+                  value={formData.whatsappNumber || ''} 
+                  onChange={e => setFormData({...formData, whatsappNumber: e.target.value})}
+                  className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                  placeholder="Ex: 11912345678" 
+                />
               </div>
-            )}
-          </div>
 
-          {uploadedPhotos.length > 0 && (
-            <>
-              <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
-                <label className="block text-sm font-semibold text-gray-900 mb-3">📷 Foto de Perfil</label>
-                <p className="text-xs text-gray-500 mb-4">Clique em uma foto abaixo para definir como foto de perfil</p>
+              <div className="p-6 border-2 border-dashed border-[#d4af37] rounded-xl bg-yellow-50/20">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">📸 Fotos da Galeria</label>
+                <p className="text-xs text-gray-500 mb-4">Selecione as fotos da galeria. Elas serão salvas no GitHub.</p>
                 
-                <div className="flex justify-center mb-5">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-md">
-                    {selectedProfile ? (
-                      <img src={selectedProfile} alt="Perfil" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <Camera size={28} className="text-gray-400" />
-                      </div>
-                    )}
-                  </div>
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="w-full bg-[#d4af37] text-black font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-2 hover:bg-[#c4a137] transition-all">
+                      <FolderUp size={18} />
+                      Selecionar Fotos
+                    </div>
+                    <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" disabled={isUploading || isSaving} />
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                  {uploadedPhotos.slice(0, 50).map((photo, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedProfile(photo)}
-                      className={`relative cursor-pointer transition-all rounded-xl overflow-hidden ${selectedProfile === photo ? 'ring-4 ring-[#d4af37] scale-95' : 'hover:scale-95'}`}
-                    >
-                      <img src={photo} alt={`Opção ${idx + 1}`} className="w-full aspect-square object-cover" />
-                      {selectedProfile === photo && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <CheckCircle size={24} className="text-[#d4af37]" />
+                {uploadedPhotos.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-3">{uploadedPhotos.length} foto(s) selecionada(s)</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2">
+                      {uploadedPhotos.map((photo, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={photo} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded-xl border border-gray-200" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(idx)}
+                            disabled={isSaving}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
 
-              <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
-                <label className="block text-sm font-semibold text-gray-900 mb-3">⭐ Fotos em Destaque</label>
-                <p className="text-xs text-gray-500 mb-4">Selecione as fotos que aparecerão no fundo da tela de acesso (máximo 5)</p>
-                
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                  {uploadedPhotos.slice(0, 50).map((photo, idx) => {
-                    const isSelected = selectedFeatured.includes(idx);
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedFeatured(selectedFeatured.filter(i => i !== idx));
-                          } else {
-                            if (selectedFeatured.length < 5) {
-                              setSelectedFeatured([...selectedFeatured, idx]);
-                            } else {
-                              alert("Você pode selecionar no máximo 5 fotos em destaque");
-                            }
-                          }
-                        }}
-                        className={`relative cursor-pointer transition-all rounded-xl overflow-hidden ${isSelected ? 'ring-4 ring-[#d4af37] scale-95' : 'hover:scale-95'}`}
-                      >
-                        <img src={photo} alt={`Destaque ${idx + 1}`} className="w-full aspect-square object-cover" />
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <CheckCircle size={24} className="text-[#d4af37]" />
+              {uploadedPhotos.length > 0 && (
+                <>
+                  <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">📷 Foto de Perfil da Galeria</label>
+                    <p className="text-xs text-gray-500 mb-4">Clique em uma foto abaixo para definir como capa/perfil</p>
+                    
+                    <div className="flex justify-center mb-5">
+                      <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-md bg-neutral-900 p-1">
+                        {selectedProfile ? (
+                          <img src={selectedProfile} alt="Perfil" className="w-full h-full object-cover rounded-full" />
+                        ) : (
+                          <div className="w-full h-full bg-neutral-800 rounded-full flex items-center justify-center">
+                            <Camera size={28} className="text-gray-400" />
                           </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-                <p className="text-sm text-gray-600 mt-4">
-                  {selectedFeatured.length} foto(s) selecionada(s) para destaque
-                </p>
-              </div>
-            </>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
+                      {uploadedPhotos.slice(0, 50).map((photo, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedProfile(photo)}
+                          className={`relative cursor-pointer transition-all rounded-xl overflow-hidden ${selectedProfile === photo ? 'ring-4 ring-[#d4af37] scale-95' : 'hover:scale-95'}`}
+                        >
+                          <img src={photo} alt={`Opção ${idx + 1}`} className="w-full aspect-square object-cover" />
+                          {selectedProfile === photo && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <CheckCircle size={24} className="text-[#d4af37]" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">⭐ Fotos em Destaque (Fundo Login)</label>
+                    <p className="text-xs text-gray-500 mb-4">Selecione até 5 fotos que aparecerão no fundo da tela de PIN</p>
+                    
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
+                      {uploadedPhotos.slice(0, 50).map((photo, idx) => {
+                        const isSelected = selectedFeatured.includes(idx);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedFeatured(selectedFeatured.filter(i => i !== idx));
+                              } else {
+                                if (selectedFeatured.length < 5) setSelectedFeatured([...selectedFeatured, idx]);
+                              }
+                            }}
+                            className={`relative cursor-pointer transition-all rounded-xl overflow-hidden ${isSelected ? 'ring-4 ring-[#d4af37] scale-95' : 'hover:scale-95'}`}
+                          >
+                            <img src={photo} alt={`Destaque ${idx + 1}`} className="w-full aspect-square object-cover" />
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                <CheckCircle size={24} className="text-[#d4af37]" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
+          {/* ABA 2: PERSONALIZAR LOADING */}
+          {activeTab === 'personalizar' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              <div className="p-6 border border-gray-200 rounded-xl bg-gray-50">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Logomarca (Centro da Tela de Carregamento)</label>
+                <p className="text-xs text-gray-500 mb-4">Faça upload da logomarca da sua empresa (preferencialmente PNG com fundo transparente).</p>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-md bg-neutral-900 flex items-center justify-center p-2 flex-shrink-0">
+                    {loaderLogo ? (
+                      <img src={loaderLogo} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <Camera size={32} className="text-gray-600" />
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col gap-3 w-full sm:w-auto">
+                    <label className="cursor-pointer">
+                      <div className="bg-black text-white text-sm font-semibold rounded-full py-2.5 px-6 flex items-center justify-center gap-2 hover:bg-gray-800 transition-all">
+                        <Upload size={16} /> Enviar Logo
+                      </div>
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isUploading || isSaving} />
+                    </label>
+                    {loaderLogo && (
+                      <button type="button" onClick={() => setLoaderLogo('')} className="text-red-500 text-sm font-medium hover:underline">Remover Logo</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl bg-gray-50">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Imagens de Fundo (Grade de Carregamento)</label>
+                <p className="text-xs text-gray-500 mb-4">Faça upload de fotos para a animação da grade de fundo na tela de carregamento. Deixe vazio para usar as fotos da galeria automaticamente.</p>
+                
+                <label className="cursor-pointer inline-block mb-4">
+                  <div className="bg-black text-white text-sm font-semibold rounded-full py-2.5 px-6 flex items-center justify-center gap-2 hover:bg-gray-800 transition-all">
+                    <Grid size={16} /> Adicionar Imagens Fundo
+                  </div>
+                  <input type="file" accept="image/*" multiple onChange={handleLoaderBgsUpload} className="hidden" disabled={isUploading || isSaving} />
+                </label>
+
+                {loaderBackgrounds.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2 border border-gray-200 bg-white rounded-xl">
+                    {loaderBackgrounds.map((bg, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={bg} alt={`Fundo ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg border border-gray-100" />
+                        <button
+                          type="button"
+                          onClick={() => setLoaderBackgrounds(loaderBackgrounds.filter((_, i) => i !== idx))}
+                          disabled={isSaving}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {loaderBackgrounds.length === 0 && (
+                  <div className="text-sm text-gray-500 italic p-4 bg-white rounded-xl border border-dashed border-gray-300 text-center">
+                    Usando fotos da galeria para a grade (Padrão)
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+          {/* Progresso de Upload */}
+          {(isUploading || isSaving) && (
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                {isUploading ? 'Processando imagens...' : `Salvando e enviando para GitHub... ${uploadProgress}%`}
+              </p>
+            </div>
+          )}
+
+          {/* Botões de Ação */}
           <div className="pt-5 flex justify-end gap-3 border-t border-gray-100">
             <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
-            <button type="submit" disabled={isSaving} className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50">
-              {isSaving ? <Loader2 size={18} className="animate-spin" /> : (isNew ? 'Criar Álbum' : 'Salvar Alterações')}
+            <button type="submit" disabled={isSaving} className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2">
+              {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              {isNew ? 'Criar Álbum' : 'Salvar Alterações'}
             </button>
           </div>
         </form>
@@ -1306,5 +1386,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
