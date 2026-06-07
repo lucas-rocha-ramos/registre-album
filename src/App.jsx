@@ -9,11 +9,12 @@ import {
 // ============================================
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
+// COLOQUE SEUS DADOS DO GITHUB AQUI:
 const GITHUB_CONFIG = {
-  owner: 'SEU_USUARIO_GITHUB',
-  repo: 'SEU_REPOSITORIO',
-  token: 'SEU_TOKEN_GITHUB',
-  branch: 'main'
+  owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
+  repo: 'registre-album',          // Ex: 'meus-albuns'
+  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
+  branch: 'main'                     // ou 'master'
 };
 
 function updateMetaTags(album) {
@@ -110,7 +111,7 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   }
 }
 
-const SHEETS_API_URL = '[https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec](https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec)';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwaNkmrY33Uf57_U1w5u1DRxNegt1xff9Us5hvicZiMVcXQj4d4Fe-wqwL_tSLdreY/exec';
 
 const saveAlbumToSheets = async (album) => {
   try {
