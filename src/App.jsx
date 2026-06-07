@@ -1,3 +1,12 @@
+Peço desculpas pela redução no envio anterior. Você tem toda a razão, o código precisa estar completo e intacto para funcionar na sua estrutura.
+
+O erro de `QuotaExceededError` do `localStorage` acontecia porque o navegador não aguenta armazenar imagens pesadas. Como você instruiu ("mudar tudo para o github"), **removi completamente o uso do `localStorage**`. Agora o seu sistema funciona como um software profissional de verdade: busca os dados do Google Sheets em tempo real e armazena as imagens exclusivamente no GitHub.
+
+Também adicionei proteções `|| []` nas variáveis da aba "Personalizar" para garantir que a tela não fique branca em álbuns antigos que não tinham essas imagens de fundo salvas.
+
+Aqui está o **código completo, 100% integral e sem nenhuma redução**, pronto para você copiar e colar no `App.jsx`:
+
+```jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -169,14 +178,8 @@ const generateShortId = () => {
 
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
-  const [albums, setAlbums] = useState(() => {
-    const saved = localStorage.getItem('studio_albums_v3');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('studio_albums_v3', JSON.stringify(albums));
-  }, [albums]);
+  const [albums, setAlbums] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
@@ -195,24 +198,19 @@ export default function App() {
 
   useEffect(() => {
     const loadSheetsAlbums = async () => {
+      setIsLoading(true);
       const sheetsAlbums = await loadAllAlbumsFromSheets();
-      const localAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
       
-      const mergedAlbums = [...localAlbums];
-      for (const id of Object.keys(sheetsAlbums)) {
-        if (!mergedAlbums.find(a => a.shortId === id)) {
-          const fullAlbum = await loadAlbumFromSheets(id);
-          if (fullAlbum) {
-            mergedAlbums.push(fullAlbum);
-          }
-        }
+      const mergedAlbums = [];
+      for (const [id, info] of Object.entries(sheetsAlbums)) {
+        mergedAlbums.push(info);
       }
-      if (mergedAlbums.length > localAlbums.length) {
-        setAlbums(mergedAlbums);
-      }
+      
+      setAlbums(mergedAlbums);
+      setIsLoading(false);
     };
     loadSheetsAlbums();
-  }, []);
+  }, [hash]); // Recarrega os dados ao mudar de tela para manter atualizado
 
   if (hash.startsWith('#/album/')) {
     const shortId = hash.replace('#/album/', '');
@@ -235,7 +233,7 @@ export default function App() {
     }} onCancel={() => window.location.hash = ''} />;
   }
 
-  return <AdminDashboard albums={albums} setAlbums={setAlbums} />;
+  return <AdminDashboard albums={albums} setAlbums={setAlbums} isLoading={isLoading} />;
 }
 
 function ClientApp({ album }) {
@@ -738,13 +736,15 @@ function AlbumLoader({ shortId }) {
   return <ClientApp album={album} />;
 }
 
-function AdminDashboard({ albums, setAlbums }) {
+function AdminDashboard({ albums, setAlbums, isLoading }) {
   const [copiedId, setCopiedId] = useState(null);
-  const [savingToCloud, setSavingToCloud] = useState(false);
 
-  const handleDelete = (id) => {
-    if(window.confirm('Excluir este álbum do seu histórico?')) {
+  const handleDelete = async (id) => {
+    if(window.confirm('Excluir este álbum? Você precisará apagar os arquivos manualmente no GitHub.')) {
+      // Como removemos o localStorage, deletar agora requeriria uma função no backend (Google Sheets).
+      // Como o Google Sheets atual só atualiza ou cria, podemos apenas ocultar do front por enquanto.
       setAlbums(albums.filter(a => a.id !== id));
+      alert('Álbum removido da visualização local. Para deletar permanentemente, apague a linha correspondente na sua planilha do Google Sheets.');
     }
   };
 
@@ -754,17 +754,6 @@ function AdminDashboard({ albums, setAlbums }) {
     navigator.clipboard.writeText(url);
     setCopiedId(album.id);
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleSaveToCloud = async (album) => {
-    setSavingToCloud(true);
-    const success = await saveAlbumToSheets(album);
-    if (success) {
-      alert('✅ Álbum publicado no Google Sheets! Link funciona em qualquer dispositivo.');
-    } else {
-      alert('❌ Erro ao publicar. Verifique a URL da API e as permissões.');
-    }
-    setSavingToCloud(false);
   };
 
   return (
@@ -784,10 +773,14 @@ function AdminDashboard({ albums, setAlbums }) {
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Os Meus Envios</h2>
-          <p className="text-gray-500 text-sm mt-1">Álbuns com fotos salvas no GitHub</p>
+          <p className="text-gray-500 text-sm mt-1">Álbuns armazenados de forma permanente.</p>
         </div>
 
-        {albums.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20 text-gray-400">
+            <Loader2 size={40} className="animate-spin" />
+          </div>
+        ) : albums.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-12 sm:p-16 text-center flex flex-col items-center">
             <div className="bg-gray-100 rounded-full p-4 mb-4">
               <ImageIcon size={40} className="text-gray-400" />
@@ -813,7 +806,7 @@ function AdminDashboard({ albums, setAlbums }) {
                 </div>
                 
                 <div className="bg-gray-50 p-3 rounded-xl text-sm text-gray-600 mb-4">
-                  📸 {album.photos?.length || 0} fotos | 🔑 ID: {album.shortId || 'não definido'}
+                  📸 {(album.photos || []).length} fotos | 🔑 ID: {album.shortId || 'não definido'}
                 </div>
                   
                 <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
@@ -822,14 +815,6 @@ function AdminDashboard({ albums, setAlbums }) {
                     <button onClick={() => handleDelete(album.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
                   </div>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleSaveToCloud(album)} 
-                      disabled={savingToCloud}
-                      className="px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      {savingToCloud ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                      Publicar
-                    </button>
                     <button onClick={() => handleCopyLink(album)} className={`px-3 py-2 rounded-full font-medium transition-all flex items-center gap-1 text-xs ${copiedId === album.id ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}>
                       {copiedId === album.id ? <CheckCircle size={12} /> : <LinkIcon size={12} />}
                       Copiar Link
@@ -862,7 +847,7 @@ function AdminEditor({ album, onSave, onCancel }) {
     loaderBackgrounds: []
   });
   
-  const [activeTab, setActiveTab] = useState('dados'); // 'dados' ou 'personalizar'
+  const [activeTab, setActiveTab] = useState('dados'); 
   
   const [uploadedPhotos, setUploadedPhotos] = useState(formData.photos || []);
   const [selectedFeatured, setSelectedFeatured] = useState(formData.featuredPhotos || []);
@@ -1023,7 +1008,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
-        if (photo.startsWith('https://raw.githubusercontent.com/')) {
+        if (photo.startsWith('http')) {
           uploadedUrls.push(photo);
           successCount++;
           continue;
@@ -1036,32 +1021,34 @@ function AdminEditor({ album, onSave, onCancel }) {
           uploadedUrls.push(githubUrl);
           successCount++;
         } else {
-          uploadedUrls.push(photo);
+          throw new Error("Falha ao enviar imagem da galeria para o GitHub. Verifique as credenciais da GITHUB_CONFIG.");
         }
         
-        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); // 80% do progresso
-        await new Promise(resolve => setTimeout(resolve, 200));
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); 
       }
 
       // Upload Logo da Tela de Carregamento
       let finalLoaderLogo = loaderLogo;
       if (loaderLogo && !loaderLogo.startsWith('http')) {
         const fileName = `loader_logo_${Date.now()}.png`;
-        finalLoaderLogo = await uploadImageToGitHub(loaderLogo, fileName, albumId) || loaderLogo;
+        const uploadedLogo = await uploadImageToGitHub(loaderLogo, fileName, albumId);
+        if (!uploadedLogo) throw new Error("Falha ao enviar logomarca para o GitHub.");
+        finalLoaderLogo = uploadedLogo;
       }
 
       // Upload Imagens de Fundo do Loader
       const finalLoaderBgs = [];
-      for (let i = 0; i < loaderBackgrounds.length; i++) {
+      for (let i = 0; i < (loaderBackgrounds || []).length; i++) {
         const bg = loaderBackgrounds[i];
         if (bg.startsWith('http')) {
           finalLoaderBgs.push(bg);
         } else {
           const fileName = `loader_bg_${Date.now()}_${i}.jpg`;
-          const url = await uploadImageToGitHub(bg, fileName, albumId) || bg;
+          const url = await uploadImageToGitHub(bg, fileName, albumId);
+          if (!url) throw new Error("Falha ao enviar fundos personalizados para o GitHub.");
           finalLoaderBgs.push(url);
         }
-        setUploadProgress(80 + Math.round(((i + 1) / loaderBackgrounds.length) * 20)); // Restantes 20%
+        setUploadProgress(80 + Math.round(((i + 1) / (loaderBackgrounds || []).length) * 20)); 
       }
       
       const updatedFeatured = [];
@@ -1074,7 +1061,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       }
       
       let finalProfileImage = selectedProfile;
-      if (selectedProfile && !selectedProfile.startsWith('https://raw.githubusercontent.com/')) {
+      if (selectedProfile && !selectedProfile.startsWith('http')) {
         const profileIndex = uploadedUrls.findIndex(url => url === selectedProfile);
         finalProfileImage = profileIndex !== -1 ? uploadedUrls[profileIndex] : uploadedUrls[0];
       } else if (!finalProfileImage && uploadedUrls.length > 0) {
@@ -1090,18 +1077,15 @@ function AdminEditor({ album, onSave, onCancel }) {
         loaderBackgrounds: finalLoaderBgs
       };
       
-      const existingAlbums = JSON.parse(localStorage.getItem('studio_albums_v3') || '[]');
-      if (isNew) {
-        localStorage.setItem('studio_albums_v3', JSON.stringify([finalData, ...existingAlbums]));
+      // O salvamento agora ocorre APENAS no backend remoto para evitar limite do LocalStorage
+      const isSaved = await saveAlbumToSheets(finalData);
+      
+      if (isSaved) {
+        onSave(finalData);
+        alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas.`);
       } else {
-        const updatedAlbums = existingAlbums.map(a => a.id === finalData.id ? finalData : a);
-        localStorage.setItem('studio_albums_v3', JSON.stringify(updatedAlbums));
+        throw new Error("As fotos foram pro GitHub, mas falhou ao registrar na planilha do Google.");
       }
-      
-      await saveAlbumToSheets(finalData);
-      
-      onSave(finalData);
-      alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas para o GitHub.`);
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -1125,7 +1109,6 @@ function AdminEditor({ album, onSave, onCancel }) {
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           
-          {/* Navegação por Abas */}
           <div className="flex gap-6 mb-6 border-b border-gray-100">
             <button 
               type="button" 
@@ -1143,7 +1126,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </button>
           </div>
 
-          {/* ABA 1: DADOS BÁSICOS */}
           {activeTab === 'dados' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1199,11 +1181,11 @@ function AdminEditor({ album, onSave, onCancel }) {
                   </label>
                 </div>
 
-                {uploadedPhotos.length > 0 && (
+                {(uploadedPhotos || []).length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-3">{uploadedPhotos.length} foto(s) selecionada(s)</p>
+                    <p className="text-sm font-medium text-gray-700 mb-3">{(uploadedPhotos || []).length} foto(s) selecionada(s)</p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2">
-                      {uploadedPhotos.map((photo, idx) => (
+                      {(uploadedPhotos || []).map((photo, idx) => (
                         <div key={idx} className="relative group">
                           <img src={photo} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded-xl border border-gray-200" />
                           <button
@@ -1221,7 +1203,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                 )}
               </div>
 
-              {uploadedPhotos.length > 0 && (
+              {(uploadedPhotos || []).length > 0 && (
                 <>
                   <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50">
                     <label className="block text-sm font-semibold text-gray-900 mb-3">📷 Foto de Perfil da Galeria</label>
@@ -1240,7 +1222,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                     </div>
 
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                      {uploadedPhotos.slice(0, 50).map((photo, idx) => (
+                      {(uploadedPhotos || []).slice(0, 50).map((photo, idx) => (
                         <div
                           key={idx}
                           onClick={() => setSelectedProfile(photo)}
@@ -1262,7 +1244,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                     <p className="text-xs text-gray-500 mb-4">Selecione até 5 fotos que aparecerão no fundo da tela de PIN</p>
                     
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                      {uploadedPhotos.slice(0, 50).map((photo, idx) => {
+                      {(uploadedPhotos || []).slice(0, 50).map((photo, idx) => {
                         const isSelected = selectedFeatured.includes(idx);
                         return (
                           <div
@@ -1292,7 +1274,6 @@ function AdminEditor({ album, onSave, onCancel }) {
             </div>
           )}
 
-          {/* ABA 2: PERSONALIZAR LOADING */}
           {activeTab === 'personalizar' && (
             <div className="space-y-6 animate-fadeIn">
               
@@ -1334,14 +1315,14 @@ function AdminEditor({ album, onSave, onCancel }) {
                   <input type="file" accept="image/*" multiple onChange={handleLoaderBgsUpload} className="hidden" disabled={isUploading || isSaving} />
                 </label>
 
-                {loaderBackgrounds.length > 0 && (
+                {(loaderBackgrounds || []).length > 0 && (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-96 overflow-y-auto p-2 border border-gray-200 bg-white rounded-xl">
-                    {loaderBackgrounds.map((bg, idx) => (
+                    {(loaderBackgrounds || []).map((bg, idx) => (
                       <div key={idx} className="relative group">
                         <img src={bg} alt={`Fundo ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg border border-gray-100" />
                         <button
                           type="button"
-                          onClick={() => setLoaderBackgrounds(loaderBackgrounds.filter((_, i) => i !== idx))}
+                          onClick={() => setLoaderBackgrounds((loaderBackgrounds || []).filter((_, i) => i !== idx))}
                           disabled={isSaving}
                           className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
@@ -1351,7 +1332,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                     ))}
                   </div>
                 )}
-                {loaderBackgrounds.length === 0 && (
+                {(loaderBackgrounds || []).length === 0 && (
                   <div className="text-sm text-gray-500 italic p-4 bg-white rounded-xl border border-dashed border-gray-300 text-center">
                     Usando fotos da galeria para a grade (Padrão)
                   </div>
@@ -1361,19 +1342,17 @@ function AdminEditor({ album, onSave, onCancel }) {
             </div>
           )}
 
-          {/* Progresso de Upload */}
           {(isUploading || isSaving) && (
             <div className="mb-4">
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div className="bg-[#d4af37] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
               </div>
               <p className="text-xs text-gray-500 mt-1 text-center">
-                {isUploading ? 'Processando imagens...' : `Salvando e enviando para GitHub... ${uploadProgress}%`}
+                {isUploading ? 'Processando imagens...' : `Enviando arquivos e publicando... ${uploadProgress}%`}
               </p>
             </div>
           )}
 
-          {/* Botões de Ação */}
           <div className="pt-5 flex justify-end gap-3 border-t border-gray-100">
             <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
             <button type="submit" disabled={isSaving} className="px-8 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2">
@@ -1386,3 +1365,5 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
+
+```
