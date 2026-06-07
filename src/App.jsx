@@ -3,7 +3,7 @@ import {
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
   PlayCircle, Grid, Download, ArrowRight, Lock, 
   Pause, Play, Image as ImageIcon, CheckCircle, X, Loader2,
-  Save, FolderUp, MessageCircle, Settings, FileText
+  Save, FolderUp, MessageCircle, Settings, FileText, Upload
 } from 'lucide-react';
 
 // ============================================
