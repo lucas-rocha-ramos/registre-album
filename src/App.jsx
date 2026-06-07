@@ -9,13 +9,38 @@ import {
 // ============================================
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
-// COLOQUE SEUS DADOS DO GITHUB AQUI:
 const GITHUB_CONFIG = {
-  owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
-  repo: 'registre-album',          // Ex: 'meus-albuns'
-  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
-  branch: 'main'                     // ou 'master'
+  owner: 'lucas-rocha-ramos',
+  repo: 'registre-album',
+  token: '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',
+  branch: 'main'
 };
+
+// Chave de criptografia (você pode mudar para uma chave mais segura)
+const ENCRYPTION_KEY = 'RegistreAlbum2024SecretKey!';
+
+// Função simples de criptografia (XOR + Base64)
+function encryptData(data, key) {
+  let encrypted = '';
+  for (let i = 0; i < data.length; i++) {
+    encrypted += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return btoa(encrypted);
+}
+
+// Função simples de descriptografia
+function decryptData(encryptedData, key) {
+  try {
+    const decoded = atob(encryptedData);
+    let decrypted = '';
+    for (let i = 0; i < decoded.length; i++) {
+      decrypted += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return decrypted;
+  } catch (e) {
+    return null;
+  }
+}
 
 function updateMetaTags(album) {
   if (!album) return;
@@ -64,20 +89,105 @@ function updateMetaTags(album) {
   });
 }
 
-async function uploadImageToGitHub(imageBase64, fileName, albumId) {
-  if (imageBase64.startsWith('http')) return imageBase64;
+// Salva dados criptografados no GitHub
+async function saveEncryptedDataToGitHub(albumId, data, fileName) {
   try {
-    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    const jsonString = JSON.stringify(data);
+    const encrypted = encryptData(jsonString, ENCRYPTION_KEY);
     const path = `albums/${albumId}/${fileName}`;
     
+    // Verifica se o arquivo já existe
     let sha = null;
     try {
-      const checkResponse = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+      const checkResponse = await fetch(
+        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_CONFIG.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      if (checkResponse.ok) {
+        const data = await checkResponse.json();
+        sha = data.sha;
+      }
+    } catch (e) {}
+    
+    const payload = {
+      message: `Update ${fileName} for album ${albumId}`,
+      content: btoa(encrypted),
+      branch: GITHUB_CONFIG.branch
+    };
+    if (sha) payload.sha = sha;
+    
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_CONFIG.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    
+    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+    return true;
+  } catch (error) {
+    console.error('Erro ao salvar dados criptografados:', error);
+    return false;
+  }
+}
+
+// Carrega dados criptografados do GitHub
+async function loadEncryptedDataFromGitHub(albumId, fileName) {
+  try {
+    const path = `albums/${albumId}/${fileName}`;
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`,
+      {
         headers: {
           'Authorization': `token ${GITHUB_CONFIG.token}`,
           'Accept': 'application/vnd.github.v3+json'
         }
-      });
+      }
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const encrypted = atob(data.content);
+    const decrypted = decryptData(encrypted, ENCRYPTION_KEY);
+    
+    if (!decrypted) return null;
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.error('Erro ao carregar dados criptografados:', error);
+    return null;
+  }
+}
+
+// Upload de imagem para o GitHub (sem criptografia, apenas para exibição)
+async function uploadImageToGitHub(imageBase64, fileName, albumId) {
+  if (imageBase64.startsWith('http')) return imageBase64;
+  try {
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    const path = `albums/${albumId}/images/${fileName}`;
+    
+    let sha = null;
+    try {
+      const checkResponse = await fetch(
+        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_CONFIG.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
       if (checkResponse.ok) {
         const data = await checkResponse.json();
         sha = data.sha;
@@ -91,15 +201,18 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
     };
     if (sha) payload.sha = sha;
     
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${GITHUB_CONFIG.token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github.v3+json'
-      },
-      body: JSON.stringify(payload)
-    });
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_CONFIG.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
     
     if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
     
@@ -115,13 +228,26 @@ const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwaNkmrY33Uf57_U
 
 const saveAlbumToSheets = async (album) => {
   try {
+    // Salva apenas metadados na planilha (sem imagens)
+    const albumMetadata = {
+      id: album.id,
+      shortId: album.shortId,
+      clientName: album.clientName,
+      subtitle: album.subtitle,
+      pin: album.pin,
+      googleDriveUrl: album.googleDriveUrl,
+      whatsappNumber: album.whatsappNumber,
+      photosCount: (album.photos || []).length,
+      createdAt: album.createdAt || new Date().toISOString()
+    };
+
     const response = await fetch(SHEETS_API_URL, {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         id: album.shortId,
-        album: album
+        album: albumMetadata
       })
     });
     const data = await response.json();
@@ -137,6 +263,12 @@ const loadAlbumFromSheets = async (shortId) => {
     const response = await fetch(`${SHEETS_API_URL}?id=${shortId}`);
     const data = await response.json();
     if (data.success && data.album) {
+      // Carrega dados completos (imagens) do GitHub
+      const albumData = await loadEncryptedDataFromGitHub(shortId, 'album_data.json');
+      if (albumData) {
+        return albumData;
+      }
+      // Fallback: retorna apenas metadados
       return data.album;
     }
     return null;
@@ -151,7 +283,17 @@ const loadAllAlbumsFromSheets = async () => {
     const response = await fetch(SHEETS_API_URL);
     const data = await response.json();
     if (data.success && data.albums) {
-      return data.albums;
+      // Carrega dados completos de cada álbum do GitHub
+      const fullAlbums = {};
+      for (const [id, metadata] of Object.entries(data.albums)) {
+        const fullData = await loadEncryptedDataFromGitHub(id, 'album_data.json');
+        if (fullData) {
+          fullAlbums[id] = fullData;
+        } else {
+          fullAlbums[id] = metadata;
+        }
+      }
+      return fullAlbums;
     }
     return {};
   } catch (error) {
@@ -195,7 +337,7 @@ export default function App() {
       setIsLoading(false);
     };
     loadSheetsAlbums();
-  }, [hash]); 
+  }, [hash]);
 
   if (hash.startsWith('#/album/')) {
     const shortId = hash.replace('#/album/', '');
@@ -324,7 +466,7 @@ function ClientApp({ album }) {
         <div className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/15 rounded-3xl p-8 text-center shadow-2xl relative z-10">
           <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-2xl mx-auto mb-4 flex-shrink-0 bg-neutral-900 p-1">
             <img 
-              src={album.profileImage || album.photos[0] || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} 
+              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa" 
               className="w-full h-full object-cover rounded-full" 
             />
@@ -369,7 +511,7 @@ function ClientApp({ album }) {
         <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-row items-center justify-start gap-4 sm:gap-6 text-left">
           <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900 p-1">
             <img 
-              src={album.profileImage || album.photos[0] || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} 
+              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
               alt="Capa do Álbum" 
               className="w-full h-full object-cover rounded-full" 
             />
@@ -658,7 +800,6 @@ function AlbumLoader({ shortId }) {
           @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
         `}} />
 
-        {/* Grade de Imagens Animada no Fundo */}
         <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 w-full h-[120%] rotate-[-4deg] scale-110 opacity-30">
             {Array.from({ length: 25 }).map((_, i) => {
@@ -676,7 +817,6 @@ function AlbumLoader({ shortId }) {
           </div>
         </div>
         
-        {/* Degradê para focar no centro */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/90 via-[#0a0a0a]/60 to-[#0a0a0a] z-0" />
 
         <div className="relative z-10 text-center max-w-sm w-full flex flex-col items-center">
@@ -730,7 +870,7 @@ function AdminDashboard({ albums, setAlbums, isLoading }) {
   const handleDelete = async (id) => {
     if(window.confirm('Excluir este álbum? Você precisará apagar os arquivos manualmente no GitHub.')) {
       setAlbums(albums.filter(a => a.id !== id));
-      alert('Álbum removido da visualização local. Para deletar permanentemente, apague a linha correspondente na sua planilha do Google Sheets.');
+      alert('Álbum removido da visualização local. Para deletar permanentemente, apague a linha correspondente na sua planilha do Google Sheets e os arquivos no GitHub.');
     }
   };
 
@@ -759,7 +899,7 @@ function AdminDashboard({ albums, setAlbums, isLoading }) {
       <main className="max-w-7xl mx-auto p-4 sm:p-8">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Os Meus Envios</h2>
-          <p className="text-gray-500 text-sm mt-1">Álbuns armazenados de forma permanente.</p>
+          <p className="text-gray-500 text-sm mt-1">Álbuns armazenados de forma permanente no GitHub.</p>
         </div>
 
         {isLoading ? (
@@ -780,7 +920,7 @@ function AdminDashboard({ albums, setAlbums, isLoading }) {
               <div key={album.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 flex flex-col">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100">
-                    <img src={album.profileImage || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} alt="Cover" className="w-full h-full object-cover" />
+                    <img src={album.profileImage || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} alt="Cover" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg text-gray-900 truncate">{album.clientName}</h3>
@@ -830,7 +970,8 @@ function AdminEditor({ album, onSave, onCancel }) {
     photos: [],
     featuredPhotos: [],
     loaderLogo: '',
-    loaderBackgrounds: []
+    loaderBackgrounds: [],
+    createdAt: new Date().toISOString()
   });
   
   const [activeTab, setActiveTab] = useState('dados'); 
@@ -990,6 +1131,7 @@ function AdminEditor({ album, onSave, onCancel }) {
       const uploadedUrls = [];
       let successCount = 0;
       
+      // Upload das imagens para o GitHub
       for (let i = 0; i < uploadedPhotos.length; i++) {
         const photo = uploadedPhotos[i];
         
@@ -1009,9 +1151,10 @@ function AdminEditor({ album, onSave, onCancel }) {
           throw new Error("Falha ao enviar imagem da galeria para o GitHub. Verifique as credenciais da GITHUB_CONFIG.");
         }
         
-        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 80)); 
+        setUploadProgress(Math.round(((i + 1) / uploadedPhotos.length) * 50));
       }
 
+      // Upload da logo
       let finalLoaderLogo = loaderLogo;
       if (loaderLogo && !loaderLogo.startsWith('http')) {
         const fileName = `loader_logo_${Date.now()}.png`;
@@ -1020,6 +1163,7 @@ function AdminEditor({ album, onSave, onCancel }) {
         finalLoaderLogo = uploadedLogo;
       }
 
+      // Upload dos backgrounds
       const finalLoaderBgs = [];
       for (let i = 0; i < (loaderBackgrounds || []).length; i++) {
         const bg = loaderBackgrounds[i];
@@ -1031,9 +1175,10 @@ function AdminEditor({ album, onSave, onCancel }) {
           if (!url) throw new Error("Falha ao enviar fundos personalizados para o GitHub.");
           finalLoaderBgs.push(url);
         }
-        setUploadProgress(80 + Math.round(((i + 1) / (loaderBackgrounds || []).length) * 20)); 
+        setUploadProgress(50 + Math.round(((i + 1) / (loaderBackgrounds || []).length) * 20));
       }
       
+      // Atualizar índices das fotos em destaque
       const updatedFeatured = [];
       for (let oldIndex of selectedFeatured) {
         const oldPhotoUrl = uploadedPhotos[oldIndex];
@@ -1043,6 +1188,7 @@ function AdminEditor({ album, onSave, onCancel }) {
         }
       }
       
+      // Foto de perfil
       let finalProfileImage = selectedProfile;
       if (selectedProfile && !selectedProfile.startsWith('http')) {
         const profileIndex = uploadedUrls.findIndex(url => url === selectedProfile);
@@ -1051,22 +1197,36 @@ function AdminEditor({ album, onSave, onCancel }) {
         finalProfileImage = uploadedUrls[0];
       }
       
+      // Monta os dados completos do álbum
       const finalData = { 
         ...formData, 
         photos: uploadedUrls, 
         featuredPhotos: updatedFeatured, 
         profileImage: finalProfileImage,
         loaderLogo: finalLoaderLogo,
-        loaderBackgrounds: finalLoaderBgs
+        loaderBackgrounds: finalLoaderBgs,
+        updatedAt: new Date().toISOString()
       };
       
+      setUploadProgress(70);
+      
+      // Salva dados criptografados no GitHub
+      const savedToGithub = await saveEncryptedDataToGitHub(albumId, finalData, 'album_data.json');
+      if (!savedToGithub) {
+        throw new Error("Falha ao salvar dados criptografados no GitHub.");
+      }
+      
+      setUploadProgress(85);
+      
+      // Salva metadados na planilha
       const isSaved = await saveAlbumToSheets(finalData);
       
       if (isSaved) {
+        setUploadProgress(100);
         onSave(finalData);
-        alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas.`);
+        alert(`✅ Álbum salvo com sucesso! ${successCount}/${uploadedPhotos.length} fotos enviadas.\n\nDados salvos criptografados no GitHub e metadados na planilha.`);
       } else {
-        throw new Error("As fotos foram pro GitHub, mas falhou ao registrar na planilha do Google.");
+        throw new Error("As fotos e dados foram para o GitHub, mas falhou ao registrar na planilha do Google.");
       }
       
     } catch (error) {
@@ -1133,7 +1293,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                   value={formData.googleDriveUrl} 
                   onChange={e => setFormData({...formData, googleDriveUrl: e.target.value})}
                   className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
-                  placeholder="[https://drive.google.com/drive/folders/](https://drive.google.com/drive/folders/)..." 
+                  placeholder="https://drive.google.com/drive/folders/..." 
                 />
                 <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
               </div>
