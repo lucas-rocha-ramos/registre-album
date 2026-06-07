@@ -1,12 +1,3 @@
-O erro `"npm run build" exited with 1` na Vercel (diferente do ambiente local) acontece porque a Vercel possui uma regra rígida: **qualquer pequeno aviso (warning) de código é tratado como um erro fatal e cancela o deploy**.
-
-No seu código anterior, havia um aviso de variável não utilizada (a variável `id` no loop de leitura das planilhas) e dois avisos de dependência do React (no `useEffect` do `AlbumLoader` e `ClientApp`). Na sua máquina funciona, mas a Vercel bloqueia por segurança.
-
-Ajustei esses pontos milimetricamente para passarem na auditoria da Vercel, mantendo 100% da sua lógica, do seu layout e sem encurtar absolutamente nada.
-
-Pode copiar e colar o bloco inteiro abaixo:
-
-```jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Camera, Plus, Trash2, Edit3, Link as LinkIcon, Eye, 
@@ -18,15 +9,13 @@ import {
 // ============================================
 // CONFIGURAÇÃO DO GITHUB
 // ============================================
-// COLOQUE SEUS DADOS DO GITHUB AQUI:
 const GITHUB_CONFIG = {
-  owner: 'lucas-rocha-ramos',     // Ex: 'joaosilva'
-  repo: 'registre-album',          // Ex: 'meus-albuns'
-  token: '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',        // Gerar em: Settings > Developer settings > Personal access tokens
-  branch: 'main'                     // ou 'master'
+  owner: 'SEU_USUARIO_GITHUB',
+  repo: 'SEU_REPOSITORIO',
+  token: 'SEU_TOKEN_GITHUB',
+  branch: 'main'
 };
 
-// Função para atualizar metatags para compartilhamento
 function updateMetaTags(album) {
   if (!album) return;
   
@@ -34,10 +23,8 @@ function updateMetaTags(album) {
   const title = album.clientName || 'Álbum Fotográfico';
   const description = album.subtitle || 'Veja minhas fotos neste álbum exclusivo';
   
-  // Atualiza o título da página
   document.title = title;
   
-  // Atualiza meta tags existentes ou cria novas
   const metaTags = [
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
@@ -76,7 +63,6 @@ function updateMetaTags(album) {
   });
 }
 
-// Função para fazer upload de imagem para o GitHub
 async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   if (imageBase64.startsWith('http')) return imageBase64;
   try {
@@ -124,7 +110,7 @@ async function uploadImageToGitHub(imageBase64, fileName, albumId) {
   }
 }
 
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwaNkmrY33Uf57_U1w5u1DRxNegt1xff9Us5hvicZiMVcXQj4d4Fe-wqwL_tSLdreY/exec';
+const SHEETS_API_URL = '[https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec](https://script.google.com/macros/s/AKfycbxUZCQSf2z9U5581WIgOZ3zhOYIry5ux3BRkf1O-YgKoL_GXu3AvgqDxe8jzOmGVcBS/exec)';
 
 const saveAlbumToSheets = async (album) => {
   try {
@@ -337,7 +323,7 @@ function ClientApp({ album }) {
         <div className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/15 rounded-3xl p-8 text-center shadow-2xl relative z-10">
           <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-2xl mx-auto mb-4 flex-shrink-0 bg-neutral-900 p-1">
             <img 
-              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
+              src={album.profileImage || album.photos[0] || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} 
               alt="Capa" 
               className="w-full h-full object-cover rounded-full" 
             />
@@ -382,7 +368,7 @@ function ClientApp({ album }) {
         <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-row items-center justify-start gap-4 sm:gap-6 text-left">
           <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#d4af37] shadow-xl flex-shrink-0 bg-neutral-900 p-1">
             <img 
-              src={album.profileImage || album.photos[0] || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} 
+              src={album.profileImage || album.photos[0] || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} 
               alt="Capa do Álbum" 
               className="w-full h-full object-cover rounded-full" 
             />
@@ -793,7 +779,7 @@ function AdminDashboard({ albums, setAlbums, isLoading }) {
               <div key={album.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 flex flex-col">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100">
-                    <img src={album.profileImage || 'https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop'} alt="Cover" className="w-full h-full object-cover" />
+                    <img src={album.profileImage || '[https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop](https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=150&auto=format&fit=crop)'} alt="Cover" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg text-gray-900 truncate">{album.clientName}</h3>
@@ -1146,7 +1132,7 @@ function AdminEditor({ album, onSave, onCancel }) {
                   value={formData.googleDriveUrl} 
                   onChange={e => setFormData({...formData, googleDriveUrl: e.target.value})}
                   className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all" 
-                  placeholder="https://drive.google.com/drive/folders/..." 
+                  placeholder="[https://drive.google.com/drive/folders/](https://drive.google.com/drive/folders/)..." 
                 />
                 <p className="text-xs text-gray-500 mt-1">Link para onde o cliente será redirecionado ao clicar em "Baixar Fotos"</p>
               </div>
@@ -1360,5 +1346,3 @@ function AdminEditor({ album, onSave, onCancel }) {
     </div>
   );
 }
-
-```
